@@ -154,17 +154,20 @@ test("Feature 07-08: gerador produz PDF interno sem conversor externo", async ()
   };
 
   const generated = await generatePerformancePdf(payload);
-  const pdfText = generated.toString("latin1");
+  // Cada palavra e um comando Tj; junta os textos para verificar o conteudo.
+  const pdfText = [...generated.toString("latin1").matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)]
+    .map((match) => match[1])
+    .join(" ");
 
   assert.equal(generated.subarray(0, 4).toString(), "%PDF");
+  assert.match(generated.toString("latin1"), /\/Subtype \/Image/);
   assert.match(pdfText, /Ana Teste/);
-  assert.match(pdfText, /Avaliacao[\s\S]*Final/);
+  assert.match(pdfText, /Avaliacao Final/);
   assert.match(pdfText, /Super Minds 3/);
-  assert.match(pdfText, /Prova Escrita:/);
-  assert.match(pdfText, /9,50/);
-  assert.match(pdfText, /Prova Oral:/);
-  assert.match(pdfText, /10,00/);
-  assert.match(pdfText, /Observacoes: Pronto para avancar/);
+  assert.match(pdfText, /Prova Escrita : 9,50/);
+  assert.match(pdfText, /Prova Oral : 10,00/);
+  assert.match(pdfText, /Observações: Pronto para avancar/);
+  assert.match(pdfText, /AVALIAÇÃO ÓTIMO BOM PRECISA MELHORAR/);
   context.close();
 });
 
