@@ -57,10 +57,26 @@ const {
 
 function createPostgresStore(options) {
   const sql = neon(options.connectionString);
-  const initPromise = initializePostgresSchema(sql, options);
+  let initPromise = null;
+
+  // Uma falha transitoria de conexao no cold start nao pode travar a instancia:
+  // se a inicializacao falhar, a proxima requisicao tenta de novo.
+  function ensureSchema() {
+    if (!initPromise) {
+      initPromise = initializePostgresSchema(sql, options).catch((error) => {
+        initPromise = null;
+        throw error;
+      });
+    }
+    return initPromise;
+  }
+
+  ensureSchema().catch((error) => {
+    console.error("Falha ao inicializar o banco Postgres:", error);
+  });
 
   async function query(text, params = []) {
-    await initPromise;
+    await ensureSchema();
     return sql.query(text, params);
   }
 
@@ -693,7 +709,7 @@ function createPostgresStore(options) {
       await query("DELETE FROM assessment_oral_test_questions WHERE oral_test_id=$1", [oralTest.id]);
     }
     await query("DELETE FROM assessment_oral_tests WHERE assessment_id=$1", [existing.id]);
-    await initPromise;
+    await ensureSchema();
     await sql.transaction((txn) => [
       txn`DELETE FROM assessment_performance_reports WHERE assessment_id = ${existing.id}`,
       txn`DELETE FROM assessment_grades WHERE assessment_id = ${existing.id}`,
@@ -753,7 +769,7 @@ function createPostgresStore(options) {
       gradeInputs,
       options
     );
-    await initPromise;
+    await ensureSchema();
     await sql.transaction((txn) => operations.flatMap((operation) => {
       const queries = [];
       if (assessment.status === "published" && operation.changed) {
@@ -1071,7 +1087,7 @@ function createPostgresStore(options) {
       throw new Error("Aluno nao encontrado.");
     }
 
-    await initPromise;
+    await ensureSchema();
     const attempts = await query("SELECT id FROM assessment_oral_attempts WHERE student_id=$1", [numericId]);
     for (const attempt of attempts) {
       await query("DELETE FROM assessment_oral_attempt_revisions WHERE attempt_id=$1", [attempt.id]);
@@ -1123,7 +1139,7 @@ function createPostgresStore(options) {
       throw new Error("Aluno nao encontrado.");
     }
 
-    await initPromise;
+    await ensureSchema();
     const batchId = createToken();
     const insertedRows = await sql.transaction((txn) =>
       normalizedIds.map((studentId) =>

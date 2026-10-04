@@ -37,6 +37,7 @@ function createApp(options = {}) {
     if (res.headersSent) {
       return next(err);
     }
+    console.error(`Erro em ${req.method} ${req.path}:`, err);
     return res.status(500).send("Erro interno do servidor.");
   });
 
