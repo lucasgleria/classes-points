@@ -1,6 +1,7 @@
 const {
   escapeHtml,
   formatAssessmentScore,
+  formatDateOnly,
   formatRatingLabel,
   pageTemplate,
   renderAssessmentStatus,
@@ -25,12 +26,12 @@ function renderAssessmentsPage(classes, selectedClassId, assessments, message = 
           </div>
           <span class="points-pill">${assessment.pending_count} pendente(s)</span>
         </div>
-        <p>${assessment.assessment_date ? `Data: ${escapeHtml(assessment.assessment_date)}` : "Sem data definida"} · ${assessment.roster_count} aluno(s) · ${assessment.counts_for_ranking ? "Conta no placar" : "Nao conta no placar"}</p>
+        <p>${assessment.assessment_date ? `Data: ${formatDateOnly(assessment.assessment_date)}` : "Sem data definida"} · ${assessment.roster_count} aluno(s) · ${assessment.counts_for_ranking ? "Conta no placar" : "Nao conta no placar"}</p>
         ${assessment.status === "draft" && !readOnly ? `
           <form method="post" action="/api/assessments/${assessment.id}/update" class="stack-form">
             <label>Titulo<input name="title" value="${escapeHtml(assessment.title)}" required /></label>
             <label>Descricao<textarea name="description" rows="2">${escapeHtml(assessment.description || "")}</textarea></label>
-            <label>Data<input name="assessmentDate" type="date" value="${assessment.assessment_date ? String(assessment.assessment_date).slice(0, 10) : ""}" /></label>
+            <label>Data<input name="assessmentDate" type="date" value="${escapeHtml(assessment.assessment_date || "")}" /></label>
             <label><input name="countsForRanking" type="checkbox" value="1" ${assessment.counts_for_ranking ? "checked" : ""} /> Considerar no placar geral</label>
             <button type="submit">Salvar dados da avaliacao</button>
           </form>` : ""}

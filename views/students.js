@@ -2,6 +2,7 @@ const {
   escapeHtml,
   formatAssessmentScore,
   formatCategoryLabel,
+  formatDateOnly,
   formatDateTime,
   formatRatingLabel,
   groupStudentsByClass,
@@ -192,7 +193,7 @@ function renderStudentDetailsPage(student, totals = {}, history = [], message = 
         ? formatAssessmentScore(Math.round((assessment.ot_score + assessment.wt_score) / 2))
         : "-";
       const assessmentDate = assessment.assessment_date
-        ? String(assessment.assessment_date).slice(0, 10)
+        ? formatDateOnly(assessment.assessment_date)
         : "Sem data";
 
       return `

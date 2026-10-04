@@ -75,6 +75,15 @@ function mapProfessorRow(row) {
   };
 }
 
+// O Postgres devolve colunas DATE como objeto Date; o SQLite devolve texto.
+// Ambos viram "AAAA-MM-DD" para as telas tratarem um formato so.
+function normalizeDateOnly(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  }
+  return value ? String(value).slice(0, 10) : null;
+}
+
 function mapAssessmentRow(row) {
   if (!row) {
     return row;
@@ -82,6 +91,7 @@ function mapAssessmentRow(row) {
 
   return {
     ...row,
+    assessment_date: normalizeDateOnly(row.assessment_date),
     id: Number(row.id),
     class_id: Number(row.class_id),
     sort_order: Number(row.sort_order || 0),
@@ -96,6 +106,7 @@ function mapAssessmentGradeRow(row) {
 
   return {
     ...row,
+    ...("assessment_date" in row ? { assessment_date: normalizeDateOnly(row.assessment_date) } : {}),
     assessment_id: Number(row.assessment_id),
     student_id: Number(row.student_id),
     ot_score: row.ot_score === null || row.ot_score === undefined ? null : Number(row.ot_score),
@@ -330,6 +341,7 @@ module.exports = {
   mapProfessorRow,
   mapStudentRow,
   normalizeClassValue,
+  normalizeDateOnly,
   normalizePerformanceComments,
   normalizePerformanceRating,
   normalizeToken,
