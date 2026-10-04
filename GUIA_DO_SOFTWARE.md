@@ -240,10 +240,10 @@ Variaveis relevantes:
 
 | Variavel | Uso |
 | --- | --- |
-| `TEACHER_USERNAME` | professor principal quando `TEACHER_ACCOUNTS` nao e usado |
-| `TEACHER_PASSWORD` | senha do professor principal |
-| `TEACHER_ACCOUNTS` | JSON com multiplos professores e IDs estaveis |
-| `SESSION_SECRET` | segredo de assinatura dos cookies |
+| `TEACHER_ACCOUNTS` | JSON com todos os professores e IDs estaveis; obrigatoria em producao |
+| `TEACHER_USERNAME` | professor principal no desenvolvimento local (ignorada em producao) |
+| `TEACHER_PASSWORD` | senha do professor principal no desenvolvimento local (ignorada em producao) |
+| `SESSION_SECRET` | segredo de assinatura dos cookies; obrigatoria em producao, minimo 32 caracteres |
 | `DATABASE_URL` ou `POSTGRES_URL` | ativa Postgres |
 | `DATABASE_FILE` | caminho SQLite local |
 | `ACADEMIC_RANKING_ENABLED` | ativa placar combinado no dashboard |

@@ -2,8 +2,7 @@
 
 ## Configuracao aplicada
 
-- Login do professor: `Lucas Leria`
-- Senha do professor: `Lucas!0509`
+- Senhas e segredos nunca ficam no repositorio. Em producao, as contas dos professores vem de `TEACHER_ACCOUNTS` e o cookie e assinado com `SESSION_SECRET`; sem essas variaveis o app nao inicia.
 - A autenticacao em producao usa cookie assinado e nao depende mais de sessao em memoria.
 - Em producao na Vercel, o app usa Postgres persistente via integracao Neon.
 - SQLite fica restrito ao desenvolvimento/testes locais.
@@ -18,8 +17,7 @@
 2. Vincule o projeto:
    `npm run vercel:link`
 3. Defina as variaveis no projeto Vercel:
-   `vercel env add TEACHER_USERNAME production`
-   `vercel env add TEACHER_PASSWORD production`
+   `vercel env add TEACHER_ACCOUNTS production`
    `vercel env add SESSION_SECRET production`
    `vercel env add ACADEMIC_RANKING_ENABLED production`
    `vercel env add REPORT_TIMEZONE production`
@@ -33,9 +31,10 @@
 
 ## Valores recomendados para as variaveis
 
-- `TEACHER_USERNAME`: `Lucas Leria`
-- `TEACHER_PASSWORD`: `Lucas!0509`
-- `SESSION_SECRET`: use um segredo forte e exclusivo no projeto da Vercel
+- `TEACHER_ACCOUNTS`: JSON com todos os professores, por exemplo
+  `[{"id":1,"username":"Lucas Leria","password":"<senha forte>"},{"id":2,"username":"Rosana","password":"<senha forte>"}]`.
+  Inclua sempre todos os professores: a cada inicializacao o app grava essas senhas no banco, e uma conta omitida manteria a senha antiga.
+- `SESSION_SECRET`: segredo aleatorio com pelo menos 32 caracteres, exclusivo do projeto da Vercel. Troca-lo encerra todas as sessoes abertas.
 - `ACADEMIC_RANKING_ENABLED`: `false` ate a aprovacao da ativacao do ranking combinado
 - `REPORT_TIMEZONE`: `America/Sao_Paulo`
 - `REPORT_CITY`: `Guarulhos`

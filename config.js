@@ -3,6 +3,7 @@ const path = require("node:path");
 
 const DEFAULT_REPORT_TIMEZONE = "America/Sao_Paulo";
 const DEFAULT_REPORT_CITY = "Guarulhos";
+const MIN_SESSION_SECRET_LENGTH = 32;
 
 function isTruthy(value) {
   return typeof value === "string" && ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
@@ -57,13 +58,15 @@ function assertUniqueTeacherAccounts(accounts) {
   return accounts;
 }
 
-function getDefaultTeacherAccounts(env) {
+// Senhas apenas para desenvolvimento local e testes. Em producao as contas
+// vem obrigatoriamente de TEACHER_ACCOUNTS (nunca de valores no codigo).
+function getDevelopmentTeacherAccounts(env) {
   return assertUniqueTeacherAccounts([
     normalizeTeacherAccount(
       {
         id: 1,
         username: env.TEACHER_USERNAME || "Lucas Leria",
-        password: env.TEACHER_PASSWORD || "Lucas!0509",
+        password: env.TEACHER_PASSWORD || "dev-lucas",
       },
       1
     ),
@@ -71,17 +74,20 @@ function getDefaultTeacherAccounts(env) {
       {
         id: 2,
         username: "Rosana",
-        password: "Rosa123",
+        password: "dev-rosana",
       },
       2
     ),
   ]);
 }
 
-function getTeacherAccounts(env) {
+function getTeacherAccounts(env, isProductionDeployment) {
   const rawTeacherAccounts = env.TEACHER_ACCOUNTS;
   if (!rawTeacherAccounts) {
-    return getDefaultTeacherAccounts(env);
+    if (isProductionDeployment) {
+      throw new Error("TEACHER_ACCOUNTS obrigatoria em producao: configure as contas dos professores na Vercel.");
+    }
+    return getDevelopmentTeacherAccounts(env);
   }
 
   let parsedTeacherAccounts;
@@ -106,7 +112,12 @@ function getRuntimeConfig(env = process.env) {
   const vercelEnvironment = env.VERCEL_ENV || "";
   const databaseUrl = env.DATABASE_URL || env.POSTGRES_URL || "";
   const databaseProvider = databaseUrl ? "postgres" : "sqlite";
-  const teacherAccounts = getTeacherAccounts(env);
+  const isProductionDeployment = isProduction || (isVercel && vercelEnvironment === "production");
+  const teacherAccounts = getTeacherAccounts(env, isProductionDeployment);
+  const sessionSecret = normalizeOptionalString(env.SESSION_SECRET, "");
+  if (isProductionDeployment && sessionSecret.length < MIN_SESSION_SECRET_LENGTH) {
+    throw new Error(`SESSION_SECRET obrigatoria em producao, com pelo menos ${MIN_SESSION_SECRET_LENGTH} caracteres.`);
+  }
   const databaseFilename =
     env.DATABASE_FILE ||
     (isVercel
@@ -124,7 +135,7 @@ function getRuntimeConfig(env = process.env) {
     teacherAccounts,
     teacherUsername: teacherAccounts[0].username,
     teacherPassword: teacherAccounts[0].password,
-    sessionSecret: env.SESSION_SECRET || "points-codex-production-secret",
+    sessionSecret: sessionSecret || "points-codex-development-secret",
     academicRankingEnabled: isTruthy(env.ACADEMIC_RANKING_ENABLED),
     reportTimezone: normalizeOptionalString(env.REPORT_TIMEZONE, DEFAULT_REPORT_TIMEZONE),
     reportCity: normalizeOptionalString(env.REPORT_CITY, DEFAULT_REPORT_CITY),
