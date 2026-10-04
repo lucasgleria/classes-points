@@ -1,0 +1,12 @@
+node_modules
+data
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+.env*.local
+server.local.*.log
+test
+design.md
+requirements.md
+starting_prompt.md
+tasks.md

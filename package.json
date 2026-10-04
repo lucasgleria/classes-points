@@ -1,0 +1,33 @@
+{
+  "name": "points-codex",
+  "version": "1.0.0",
+  "description": "MVP para controle de pontos de alunos em aulas de ingles",
+  "main": "server.js",
+  "scripts": {
+    "db:reset": "node scripts/reset-db.js",
+    "verify": "npm test",
+    "predeploy:vercel": "npm run verify",
+    "start": "node server.js",
+    "test": "node --test --test-isolation=none",
+    "vercel:deploy": "npm run predeploy:vercel && npx vercel --prod",
+    "vercel:link": "npx vercel link"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "better-sqlite3": "^12.9.0",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "fast-check": "^4.3.0",
+    "supertest": "^7.1.4"
+  }
+}
