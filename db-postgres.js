@@ -873,9 +873,9 @@ function createPostgresStore(options) {
     `, [professorId, normalized.title, normalized.description]);
     for (const question of normalized.questions) {
       await query(`
-        INSERT INTO oral_test_template_questions (template_id,position,prompt,teacher_note)
-        VALUES ($1,$2,$3,$4)
-      `, [inserted.id, question.position, question.prompt, question.teacherNote]);
+        INSERT INTO oral_test_template_questions (template_id,position,prompt,teacher_note,weight)
+        VALUES ($1,$2,$3,$4,$5)
+      `, [inserted.id, question.position, question.prompt, question.teacherNote, question.weight]);
     }
     return getOralTestTemplateById(inserted.id);
   }
@@ -888,9 +888,9 @@ function createPostgresStore(options) {
     await query("DELETE FROM oral_test_template_questions WHERE template_id=$1", [template.id]);
     for (const question of normalized.questions) {
       await query(`
-        INSERT INTO oral_test_template_questions (template_id,position,prompt,teacher_note)
-        VALUES ($1,$2,$3,$4)
-      `, [template.id, question.position, question.prompt, question.teacherNote]);
+        INSERT INTO oral_test_template_questions (template_id,position,prompt,teacher_note,weight)
+        VALUES ($1,$2,$3,$4,$5)
+      `, [template.id, question.position, question.prompt, question.teacherNote, question.weight]);
     }
     return getOralTestTemplateById(template.id);
   }
@@ -945,9 +945,9 @@ function createPostgresStore(options) {
     `, [assessment.id, template.id, template.title, template.description, professorId]);
     for (const question of template.questions) {
       await query(`
-        INSERT INTO assessment_oral_test_questions (oral_test_id,position,prompt,teacher_note)
-        VALUES ($1,$2,$3,$4)
-      `, [inserted.id, question.position, question.prompt, question.teacher_note || ""]);
+        INSERT INTO assessment_oral_test_questions (oral_test_id,position,prompt,teacher_note,weight)
+        VALUES ($1,$2,$3,$4,$5)
+      `, [inserted.id, question.position, question.prompt, question.teacher_note || "", question.weight || 1]);
     }
     return getAssessmentOralTestById(inserted.id);
   }

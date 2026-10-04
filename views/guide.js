@@ -64,7 +64,7 @@ function renderGuidePage() {
       steps: [
         "Abra Avaliacao Oral dentro de uma avaliacao em rascunho ou publicada.",
         "Crie um novo modelo oral ou vincule um modelo existente do professor.",
-        "Digite uma pergunta por linha; o sistema aceita ate 50 perguntas por modelo.",
+        "Digite uma pergunta por linha no formato Pergunta | Resposta esperada | Peso; resposta e peso sao opcionais (peso de 1 a 10, padrao 1). O sistema aceita ate 50 perguntas por modelo.",
         "Aplique a prova por aluno, com respostas Correto, Meio-Certo ou Errado.",
         "Salve rascunhos durante a aplicacao ou conclua para calcular a nota oral.",
         "A nota concluida aparece como sugestao no campo OT da tela Lancar notas; o professor ainda confirma e salva OT/WT.",

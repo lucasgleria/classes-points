@@ -1,6 +1,7 @@
 const VALID_ORAL_ANSWER_RESULTS = new Set(["correct", "half", "wrong"]);
 const MAX_ORAL_QUESTIONS = 50;
 const MAX_ORAL_OBSERVATION_LENGTH = 500;
+const MAX_ORAL_QUESTION_WEIGHT = 10;
 
 function normalizeOralText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -22,18 +23,38 @@ function normalizeOralAnswerResult(value) {
   return result;
 }
 
+function normalizeOralQuestionWeight(value) {
+  const text = value === undefined || value === null ? "" : normalizeOralText(String(value));
+  if (!text) {
+    return 1;
+  }
+
+  const weight = Number(text);
+  if (!Number.isInteger(weight) || weight < 1 || weight > MAX_ORAL_QUESTION_WEIGHT) {
+    throw new Error(`Peso da pergunta deve ser um numero inteiro de 1 a ${MAX_ORAL_QUESTION_WEIGHT}.`);
+  }
+  return weight;
+}
+
+// Cada linha aceita "Pergunta | Resposta esperada | Peso"; resposta e peso sao opcionais.
+function parseOralQuestionLine(line) {
+  const [prompt = "", teacherNote = "", weight = ""] = line.split("|");
+  return { prompt, teacherNote, weight };
+}
+
 function normalizeOralQuestions(questions) {
   const list = Array.isArray(questions)
     ? questions
     : normalizeOralText(questions)
       .split(/\r?\n/)
-      .map((line) => ({ prompt: line }));
+      .map(parseOralQuestionLine);
 
   const normalized = list
     .map((question, index) => ({
       position: Number(question.position || index + 1),
       prompt: normalizeOralText(question.prompt ?? question.text ?? question),
       teacherNote: normalizeOralText(question.teacherNote ?? question.teacher_note),
+      weight: question.weight,
     }))
     .filter((question) => question.prompt);
 
@@ -48,6 +69,7 @@ function normalizeOralQuestions(questions) {
   return normalized.map((question, index) => ({
     ...question,
     position: index + 1,
+    weight: normalizeOralQuestionWeight(question.weight),
   }));
 }
 
@@ -90,6 +112,7 @@ function normalizeOralAnswers(answers, questions) {
     const questionId = Number(question.id);
     return {
       questionId,
+      weight: normalizeOralQuestionWeight(question.weight),
       result: byQuestionId.has(questionId)
         ? normalizeOralAnswerResult(byQuestionId.get(questionId))
         : null,
@@ -103,26 +126,31 @@ function calculateOralScoreHundredths(answers) {
   }
 
   let points = 0;
+  let totalWeight = 0;
   for (const answer of answers) {
     const result = normalizeOralAnswerResult(answer.result);
+    const weight = normalizeOralQuestionWeight(answer.weight);
+    totalWeight += weight;
     if (result === "correct") {
-      points += 1;
+      points += weight;
     } else if (result === "half") {
-      points += 0.5;
+      points += weight / 2;
     }
   }
 
-  return Math.round((points / answers.length) * 1000);
+  return Math.round((points / totalWeight) * 1000);
 }
 
 module.exports = {
   MAX_ORAL_OBSERVATION_LENGTH,
   MAX_ORAL_QUESTIONS,
+  MAX_ORAL_QUESTION_WEIGHT,
   VALID_ORAL_ANSWER_RESULTS,
   calculateOralScoreHundredths,
   normalizeOralAnswerResult,
   normalizeOralAnswers,
   normalizeOralObservation,
+  normalizeOralQuestionWeight,
   normalizeOralQuestions,
   normalizeOralTemplatePayload,
 };

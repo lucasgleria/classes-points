@@ -221,6 +221,13 @@ function initializeSqliteSchema(db, options) {
     db.exec("ALTER TABLE point_transactions ADD COLUMN batch_id TEXT");
   }
 
+  for (const table of ["oral_test_template_questions", "assessment_oral_test_questions"]) {
+    const questionColumns = db.prepare(`PRAGMA table_info(${table})`).all();
+    if (!questionColumns.some((column) => column.name === "weight")) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN weight INTEGER NOT NULL DEFAULT 1`);
+    }
+  }
+
   const upsertProfessor = db.prepare(`
     INSERT INTO professors (id, username, password, display_name)
     VALUES (?, ?, ?, ?)

@@ -7,6 +7,11 @@ const {
   renderProfessorTopbar,
 } = require("./shared");
 
+function renderOralWeight(weight) {
+  const value = Number(weight) || 1;
+  return `<small class="points-pill">peso ${value}</small>`;
+}
+
 function renderOralAssessmentPage(assessment, templates, oralTest, roster = [], message = "", errorMessage = "") {
   const readOnly = Boolean(assessment.class_archived_at || assessment.status === "archived");
   const disabled = readOnly ? "disabled" : "";
@@ -15,7 +20,11 @@ function renderOralAssessmentPage(assessment, templates, oralTest, roster = [], 
     ? templates.map((template) => `<option value="${template.id}">${escapeHtml(template.title)} (${template.question_count || 0} perguntas)</option>`).join("")
     : "";
   const linkedQuestions = oralTest
-    ? oralTest.questions.map((question) => `<li>${question.position}. ${escapeHtml(question.prompt)}</li>`).join("")
+    ? oralTest.questions.map((question) => `
+      <li>
+        ${question.position}. ${escapeHtml(question.prompt)} ${renderOralWeight(question.weight)}
+        ${question.teacher_note ? `<p class="panel-description">Resposta esperada: ${escapeHtml(question.teacher_note)}</p>` : ""}
+      </li>`).join("")
     : "";
 
   return pageTemplate({
@@ -56,8 +65,9 @@ function renderOralAssessmentPage(assessment, templates, oralTest, roster = [], 
               <label>Nome do modelo<input name="title" required placeholder="Oral Test - Unit 1" /></label>
               <label>Descricao<textarea name="description" rows="2" placeholder="Tema, unidade ou criterio de aplicacao"></textarea></label>
               <label>Perguntas
-                <textarea name="questionsText" rows="8" required placeholder="Digite uma pergunta por linha"></textarea>
+                <textarea name="questionsText" rows="8" required placeholder="What's this? | It's a frog. | 1&#10;Do you like dogs? | I like dogs. / I don't like dogs. | 2"></textarea>
               </label>
+              <p class="panel-description">Uma pergunta por linha, no formato <strong>Pergunta | Resposta esperada | Peso</strong>. Resposta e peso sao opcionais; sem peso, a pergunta vale 1. O peso vai de 1 a 10 e define quanto a pergunta conta na nota.</p>
               <button type="submit">Salvar modelo e vincular</button>
             </form>
           </section>` : ""}
@@ -114,9 +124,9 @@ function renderOralAttemptPage(assessment, oralTest, student, attempt, message =
     <fieldset class="oral-question">
       <legend>
         <span class="oral-question-number">${question.position}</span>
-        <span>${escapeHtml(question.prompt)}</span>
+        <span>${escapeHtml(question.prompt)} ${renderOralWeight(question.weight)}</span>
       </legend>
-      ${question.teacher_note ? `<p class="panel-description">${escapeHtml(question.teacher_note)}</p>` : ""}
+      ${question.teacher_note ? `<p class="panel-description">Resposta esperada: ${escapeHtml(question.teacher_note)}</p>` : ""}
       <div class="oral-answer-grid">
         ${resultOptions.map(([value, label, className]) => `
           <label class="oral-answer-option ${className}">

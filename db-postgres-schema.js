@@ -219,6 +219,8 @@ async function initializePostgresSchema(sql, options) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  await sql.query(`ALTER TABLE oral_test_template_questions ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 1;`);
+  await sql.query(`ALTER TABLE assessment_oral_test_questions ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 1;`);
 
   for (const teacher of options.teacherAccounts) {
     await sql.query(

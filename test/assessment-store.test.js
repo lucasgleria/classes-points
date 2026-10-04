@@ -145,6 +145,43 @@ test("Feature 12: turma arquivada preserva avaliacao em modo somente leitura e s
   context.close();
 });
 
+test("Feature Oral: pesos e respostas esperadas sao copiados para a avaliacao e usados na nota", () => {
+  const context = fixture();
+  const student = context.store.createStudent("Ana", { classId: context.classroom.id });
+  const assessment = context.store.createAssessment(context.classroom.id, { title: "Oral Units 2-3" });
+  const template = context.store.createOralTestTemplate(1, {
+    title: "Oral Units 2-3",
+    questionsText: [
+      "What's this? | It's a frog. | 1",
+      "What shape is this? | It's a triangle.",
+      "Do you like dogs? | I like dogs. / I don't like dogs. | 2",
+      "Say in English: Eu nao gosto de aranhas. | I don't like spiders. | 2",
+    ].join("\n"),
+  });
+  assert.deepEqual(template.questions.map((question) => question.weight), [1, 1, 2, 2]);
+
+  const copy = context.store.duplicateOralTestTemplate(template.id, 1);
+  assert.deepEqual(copy.questions.map((question) => question.weight), [1, 1, 2, 2]);
+
+  const oralTest = context.store.attachOralTemplateToAssessment(assessment.id, template.id, 1);
+  assert.deepEqual(oralTest.questions.map((question) => question.weight), [1, 1, 2, 2]);
+  assert.equal(oralTest.questions[0].teacher_note, "It's a frog.");
+
+  const attempt = context.store.completeOralAttempt(
+    oralTest.id,
+    student.id,
+    [
+      { questionId: oralTest.questions[0].id, result: "correct" },
+      { questionId: oralTest.questions[1].id, result: "correct" },
+      { questionId: oralTest.questions[2].id, result: "half" },
+      { questionId: oralTest.questions[3].id, result: "correct" },
+    ],
+    { professorId: 1 }
+  );
+  assert.equal(attempt.score_hundredths, 833);
+  context.close();
+});
+
 test("Feature Oral: modelo reutilizavel, roster por pontos e observacao da tentativa", () => {
   const context = fixture();
   const ana = context.store.createStudent("Ana", { classId: context.classroom.id });

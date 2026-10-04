@@ -918,11 +918,11 @@ function createSqliteStore(options) {
         VALUES (?, ?, ?)
       `).run(Number(professorId), normalized.title, normalized.description);
       const insertQuestion = db.prepare(`
-        INSERT INTO oral_test_template_questions (template_id, position, prompt, teacher_note)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO oral_test_template_questions (template_id, position, prompt, teacher_note, weight)
+        VALUES (?, ?, ?, ?, ?)
       `);
       for (const question of normalized.questions) {
-        insertQuestion.run(result.lastInsertRowid, question.position, question.prompt, question.teacherNote);
+        insertQuestion.run(result.lastInsertRowid, question.position, question.prompt, question.teacherNote, question.weight);
       }
       return result.lastInsertRowid;
     });
@@ -941,11 +941,11 @@ function createSqliteStore(options) {
       `).run(normalized.title, normalized.description, template.id);
       db.prepare("DELETE FROM oral_test_template_questions WHERE template_id = ?").run(template.id);
       const insertQuestion = db.prepare(`
-        INSERT INTO oral_test_template_questions (template_id, position, prompt, teacher_note)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO oral_test_template_questions (template_id, position, prompt, teacher_note, weight)
+        VALUES (?, ?, ?, ?, ?)
       `);
       for (const question of normalized.questions) {
-        insertQuestion.run(template.id, question.position, question.prompt, question.teacherNote);
+        insertQuestion.run(template.id, question.position, question.prompt, question.teacherNote, question.weight);
       }
     });
     update();
@@ -1033,11 +1033,11 @@ function createSqliteStore(options) {
         ) VALUES (?, ?, ?, ?, ?)
       `).run(assessment.id, template.id, template.title, template.description, Number(professorId));
       const insertQuestion = db.prepare(`
-        INSERT INTO assessment_oral_test_questions (oral_test_id, position, prompt, teacher_note)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO assessment_oral_test_questions (oral_test_id, position, prompt, teacher_note, weight)
+        VALUES (?, ?, ?, ?, ?)
       `);
       for (const question of template.questions) {
-        insertQuestion.run(result.lastInsertRowid, question.position, question.prompt, question.teacher_note || "");
+        insertQuestion.run(result.lastInsertRowid, question.position, question.prompt, question.teacher_note || "", question.weight || 1);
       }
       return result.lastInsertRowid;
     });

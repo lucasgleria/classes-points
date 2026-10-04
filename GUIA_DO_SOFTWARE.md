@@ -123,7 +123,9 @@ Funcionalidades:
 
 - Cria modelos orais reutilizaveis por professor.
 - Cada modelo tem titulo, descricao opcional e perguntas.
-- Perguntas podem ser digitadas como uma pergunta por linha.
+- Perguntas podem ser digitadas como uma pergunta por linha, no formato `Pergunta | Resposta esperada | Peso`.
+- Resposta esperada e peso sao opcionais; o peso e um inteiro de 1 a 10 e vale 1 quando omitido.
+- A resposta esperada aparece para o professor durante a aplicacao.
 - O limite atual e de 50 perguntas por modelo.
 - Um modelo vinculado a uma avaliacao e copiado como snapshot.
 - A aplicacao da prova lista alunos por pontos de participacao, do maior para o menor.
@@ -134,10 +136,10 @@ Funcionalidades:
 Calculo:
 
 ```text
-Correto = 1
-Meio-Certo = 0,5
+Correto = peso
+Meio-Certo = peso * 0,5
 Errado = 0
-nota_oral = (soma / quantidade_de_perguntas) * 10
+nota_oral = (soma / soma_dos_pesos) * 10
 ```
 
 A nota oral concluida aparece como sugestao no campo OT da tela de lancamento de notas. A nota oficial continua sendo confirmada no fluxo OT/WT.
