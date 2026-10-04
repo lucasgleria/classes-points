@@ -9,7 +9,17 @@ const {
 
 function renderOralWeight(weight) {
   const value = Number(weight) || 1;
-  return `<small class="points-pill">peso ${value}</small>`;
+  return `<span class="oral-weight">peso ${value}</span>`;
+}
+
+function renderOralQuestionHeader(question, headingId = "") {
+  return `
+    <div class="oral-question-header">
+      <span class="oral-question-number">${question.position}</span>
+      <h3 ${headingId ? `id="${headingId}"` : ""}>${escapeHtml(question.prompt)}</h3>
+      ${renderOralWeight(question.weight)}
+      ${question.teacher_note ? `<p class="oral-question-answer"><strong>Resposta esperada:</strong> ${escapeHtml(question.teacher_note)}</p>` : ""}
+    </div>`;
 }
 
 function renderOralAssessmentPage(assessment, templates, oralTest, roster = [], message = "", errorMessage = "") {
@@ -20,11 +30,7 @@ function renderOralAssessmentPage(assessment, templates, oralTest, roster = [], 
     ? templates.map((template) => `<option value="${template.id}">${escapeHtml(template.title)} (${template.question_count || 0} perguntas)</option>`).join("")
     : "";
   const linkedQuestions = oralTest
-    ? oralTest.questions.map((question) => `
-      <li>
-        ${question.position}. ${escapeHtml(question.prompt)} ${renderOralWeight(question.weight)}
-        ${question.teacher_note ? `<p class="panel-description">Resposta esperada: ${escapeHtml(question.teacher_note)}</p>` : ""}
-      </li>`).join("")
+    ? oralTest.questions.map((question) => `<li>${renderOralQuestionHeader(question)}</li>`).join("")
     : "";
 
   return pageTemplate({
@@ -46,7 +52,7 @@ function renderOralAssessmentPage(assessment, templates, oralTest, roster = [], 
             </div>
             ${oralTest ? `<span class="points-pill">${completedCount}/${roster.length} avaliados</span>` : ""}
           </div>
-          ${oralTest ? `<ol>${linkedQuestions}</ol><a class="ghost-link" href="/assessments/${assessment.id}/oral/apply">Aplicar prova oral</a>` : ""}
+          ${oralTest ? `<ol class="oral-question-preview">${linkedQuestions}</ol><a class="ghost-link" href="/assessments/${assessment.id}/oral/apply">Aplicar prova oral</a>` : ""}
         </section>
         ${templates.length && !readOnly ? `
           <section class="card performance-card">
@@ -121,12 +127,8 @@ function renderOralAttemptPage(assessment, oralTest, student, attempt, message =
     ["wrong", "Errado", "oral-answer-option--wrong"],
   ];
   const questions = oralTest.questions.map((question) => `
-    <fieldset class="oral-question">
-      <legend>
-        <span class="oral-question-number">${question.position}</span>
-        <span>${escapeHtml(question.prompt)} ${renderOralWeight(question.weight)}</span>
-      </legend>
-      ${question.teacher_note ? `<p class="panel-description">Resposta esperada: ${escapeHtml(question.teacher_note)}</p>` : ""}
+    <section class="oral-question" role="radiogroup" aria-labelledby="oral-question-${question.id}">
+      ${renderOralQuestionHeader(question, `oral-question-${question.id}`)}
       <div class="oral-answer-grid">
         ${resultOptions.map(([value, label, className]) => `
           <label class="oral-answer-option ${className}">
@@ -134,7 +136,7 @@ function renderOralAttemptPage(assessment, oralTest, student, attempt, message =
             <span>${label}</span>
           </label>`).join("")}
       </div>
-    </fieldset>`).join("");
+    </section>`).join("");
   const completedSummary = attempt?.status === "completed"
     ? `<p class="success-banner">Resultado atual: ${formatAssessmentScore(attempt.score_hundredths)}.</p>`
     : "";
@@ -157,7 +159,7 @@ function renderOralAttemptPage(assessment, oralTest, student, attempt, message =
             <p>${escapeHtml(assessment.title)} - ${escapeHtml(assessment.class_book)}</p>
           </div>
           <div class="oral-attempt-stats">
-            <span><strong>${answeredCount}/${oralTest.questions.length}</strong><small>respondidas</small></span>
+            <span><strong><span data-oral-answered>${answeredCount}</span>/${oralTest.questions.length}</strong><small>respondidas</small></span>
             <span><strong>${statusText}</strong><small>status</small></span>
             ${attempt?.status === "completed" ? `<span><strong>${formatAssessmentScore(attempt.score_hundredths)}</strong><small>nota oral</small></span>` : ""}
           </div>
@@ -172,7 +174,8 @@ function renderOralAttemptPage(assessment, oralTest, student, attempt, message =
           </section>
           ${attempt?.status === "completed" && assessment.status === "published" && !readOnly ? `<label>Motivo da alteracao<input name="reason" placeholder="Obrigatorio se a nota mudar" /></label>` : ""}
           ${readOnly ? "" : `
-            <div class="inline-actions oral-submit-actions">
+            <div class="oral-submit-actions">
+              <span class="oral-submit-progress"><strong><span data-oral-answered>${answeredCount}</span>/${oralTest.questions.length}</strong> respondidas</span>
               ${attempt?.status === "completed" ? "" : `<button class="ghost-link" type="submit" formaction="/api/assessments/${assessment.id}/oral/students/${student.id}/draft">Salvar rascunho</button>`}
               <button type="submit">Salvar nota oral</button>
             </div>`}

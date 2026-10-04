@@ -248,7 +248,7 @@ textarea {
   gap: 10px;
 }
 
-.oral-attempt-stats span {
+.oral-attempt-stats > span {
   display: grid;
   gap: 2px;
   padding: 12px 14px;
@@ -283,14 +283,67 @@ textarea {
   box-shadow: 0 10px 26px rgba(17, 71, 52, 0.07);
 }
 
-.oral-question legend {
-  display: flex;
-  align-items: flex-start;
+.oral-question:has(input[type="radio"]:checked) {
+  border-color: rgba(29, 107, 79, 0.28);
+}
+
+.oral-question-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
   gap: 12px;
+}
+
+.oral-question-header h3 {
+  margin: 0;
+  padding-top: 4px;
+  font-size: 1.05rem;
   font-weight: 800;
   line-height: 1.35;
-  padding: 0;
   color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.oral-question-answer {
+  grid-column: 2 / -1;
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--primary);
+  border-radius: 0 12px 12px 0;
+  background: var(--bg-accent);
+  color: var(--primary-strong);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.oral-question-answer strong {
+  font-weight: 700;
+}
+
+.oral-weight {
+  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(29, 107, 79, 0.12);
+  color: var(--primary-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.oral-question-preview {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.oral-question-preview li {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
 }
 
 .oral-question-number {
@@ -308,6 +361,7 @@ textarea {
 
 .oral-answer-grid {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -331,13 +385,21 @@ textarea {
   align-items: center;
   justify-content: center;
   min-height: 48px;
-  padding: 12px 14px;
+  padding: 12px 6px;
+  text-align: center;
+  white-space: nowrap;
+  font-size: clamp(0.85rem, 3.6vw, 1rem);
   border: 1px solid var(--border);
   border-radius: 16px;
   background: #fff;
   color: var(--text);
   font-weight: 800;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.oral-answer-option:hover input[type="radio"]:not(:checked):not(:disabled) + span {
+  border-color: rgba(29, 107, 79, 0.4);
+  background: var(--bg-accent);
 }
 
 .oral-answer-option input[type="radio"]:focus-visible + span {
@@ -356,8 +418,8 @@ textarea {
 }
 
 .oral-answer-option--half input[type="radio"]:checked + span {
-  background: #536f68;
-  border-color: #536f68;
+  background: #a46a12;
+  border-color: #a46a12;
 }
 
 .oral-answer-option--wrong input[type="radio"]:checked + span {
@@ -373,12 +435,48 @@ textarea {
 .oral-submit-actions {
   position: sticky;
   bottom: max(12px, env(safe-area-inset-bottom));
-  padding: 12px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: 20px;
-  background: rgba(255, 253, 248, 0.94);
+  background: rgba(255, 253, 248, 0.96);
   box-shadow: 0 12px 30px rgba(17, 71, 52, 0.12);
   backdrop-filter: blur(8px);
+}
+
+.oral-submit-progress {
+  flex: 1 1 100%;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.oral-submit-progress strong {
+  color: var(--primary-strong);
+}
+
+.stack-form .oral-submit-actions button {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  padding: 10px 14px;
+}
+
+@media (min-width: 720px) {
+  .oral-submit-progress {
+    flex: 1 1 auto;
+    text-align: left;
+    padding-left: 6px;
+  }
+
+  .stack-form .oral-submit-actions button {
+    flex: 0 0 auto;
+    min-width: 170px;
+  }
 }
 
 .performance-table {
@@ -987,9 +1085,6 @@ button,
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .oral-answer-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 
   .assessment-detail-row {
     grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr);

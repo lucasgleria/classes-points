@@ -300,7 +300,26 @@ function setupConfirmActions() {
   });
 }
 
+function setupOralAttemptProgress() {
+  const form = document.querySelector(".oral-attempt-form");
+  if (!form) {
+    return;
+  }
+
+  const counters = document.querySelectorAll("[data-oral-answered]");
+  const update = () => {
+    const answered = form.querySelectorAll(".oral-question input[type='radio']:checked").length;
+    counters.forEach((counter) => {
+      counter.textContent = String(answered);
+    });
+  };
+
+  form.addEventListener("change", update);
+  update();
+}
+
 setupMenu();
 setupDashboardHistory();
 setupPointsForm();
 setupConfirmActions();
+setupOralAttemptProgress();
