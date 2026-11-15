@@ -36,7 +36,7 @@
   `[{"id":1,"username":"Lucas","password":"<senha forte>","displayName":"Lucas Leria"}]`.
   Para remover um professor, tire-o da lista e refaca o deploy: a conta perde o login (os dados dele continuam no banco).
 - `SESSION_SECRET`: segredo aleatorio com pelo menos 32 caracteres, exclusivo do projeto da Vercel. Troca-lo encerra todas as sessoes abertas.
-- `ACADEMIC_RANKING_ENABLED`: `false` ate a aprovacao da ativacao do ranking combinado
+- `ACADEMIC_RANKING_ENABLED`: `true` (ranking combinado ativo em producao desde 15/11/2026; `false` volta a ordenar so por pontos)
 - `REPORT_TIMEZONE`: `America/Sao_Paulo`
 - `REPORT_CITY`: `Guarulhos`
 - Senhas em `TEACHER_ACCOUNTS`: use senhas longas e aleatorias (20+ caracteres). Ao trocar, refaca o deploy; o app grava o novo hash no banco no primeiro acesso.
@@ -50,4 +50,4 @@
 - `npm run db:reset` e uma acao manual e destrutiva restrita ao SQLite local.
 - Antes de uma migracao de producao, faca backup e valide a alteracao em uma copia do banco.
 - Valide visualmente uma Ficha de Desempenho gerada antes de liberar o botao para uso regular.
-- Mantenha `ACADEMIC_RANKING_ENABLED=false` no primeiro deploy; ative somente depois de conferir medias e bonus de uma turma piloto.
+- Em um projeto novo, comece com `ACADEMIC_RANKING_ENABLED=false` e ative depois de conferir medias e bonus de uma turma piloto.
