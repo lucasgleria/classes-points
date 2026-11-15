@@ -50,6 +50,7 @@ const {
   mapProfessorRow,
   mapStudentRow,
   slugifyName,
+  groupAcademicSummaries,
 } = require("./db-common");
 const {
   normalizeOralTemplatePayload,
@@ -77,7 +78,16 @@ function createPostgresStore(options) {
 
   async function query(text, params = []) {
     await ensureSchema();
-    return sql.query(text, params);
+    if (!process.env.DEBUG_DB) {
+      return sql.query(text, params);
+    }
+    // DEBUG_DB=1 registra o tempo de cada ida ao banco, para medir a latencia em producao.
+    const startedAt = Date.now();
+    try {
+      return await sql.query(text, params);
+    } finally {
+      console.log(`[db] ${Date.now() - startedAt}ms ${text.replace(/\s+/g, " ").trim().slice(0, 80)}`);
+    }
   }
 
   async function queryOne(text, params = []) {
@@ -277,13 +287,64 @@ function createPostgresStore(options) {
       throw new Error("Turma do aluno e obrigatoria.");
     }
 
-    const parsedNames = parseStudentNames(names);
+    const parsedNames = parseStudentNames(names).map(normalizeStudentName);
+    const bases = parsedNames.map((name) => slugifyName(name) || "aluno");
 
-    const created = [];
-    for (const name of parsedNames) {
-      created.push(await createStudent(name, { classId }));
-    }
-    return created;
+    // Uma consulta para os logins ja usados com esses prefixos, em vez de uma por tentativa.
+    const taken = new Set((await query(
+      "SELECT username FROM students WHERE username LIKE ANY($1::text[])",
+      [[...new Set(bases)].map((base) => `${base.replace(/[\\%_]/g, "\\$&")}%`)]
+    )).map((row) => row.username));
+    const usernames = bases.map((base) => {
+      let candidate = base;
+      let suffix = 1;
+      while (taken.has(candidate)) {
+        suffix += 1;
+        candidate = `${base}_${suffix}`;
+      }
+      taken.add(candidate);
+      return candidate;
+    });
+
+    const inserted = await query(`
+      INSERT INTO students (name, token, username, password, class_id)
+      SELECT name, token, username, password, $5
+      FROM unnest($1::text[], $2::text[], $3::text[], $4::text[]) WITH ORDINALITY AS t(name, token, username, password, position)
+      ORDER BY position
+      RETURNING id
+    `, [
+      parsedNames,
+      parsedNames.map(() => createToken()),
+      usernames,
+      parsedNames.map(() => createPassword()),
+      classId,
+    ]);
+    return getStudentsByIds(inserted.map((row) => row.id));
+  }
+
+  async function getStudentsByIds(ids) {
+    const rows = await query(
+      `
+        SELECT
+          s.id,
+          s.name,
+          s.token,
+          s.username,
+          s.password,
+          s.created_at,
+          s.class_id,
+          c.book AS class_book,
+          c.weekday AS class_weekday,
+          c.start_time AS class_start_time,
+          c.end_time AS class_end_time
+        FROM students s
+        LEFT JOIN classes c ON c.id = s.class_id
+        WHERE s.id = ANY($1::int[])
+      `,
+      [ids]
+    );
+    const byId = new Map(rows.map((row) => [Number(row.id), mapStudentRow(row)]));
+    return ids.map((id) => byId.get(Number(id)));
   }
 
   async function getStudentById(id) {
@@ -374,13 +435,23 @@ function createPostgresStore(options) {
     );
   }
 
-  async function getAllStudents() {
+  // Mesma consulta para todas as listagens de alunos; o filtro por professor evita
+  // somar os pontos de alunos de outras turmas so para descarta-los depois no JS.
+  async function selectStudentsWithPoints({ withCredentials = false, professorId = null } = {}) {
+    const params = [];
+    let filter = "";
+    if (professorId !== null) {
+      params.push(professorId);
+      filter = "WHERE COALESCE(c.professor_id, 1) = $1 AND c.archived_at IS NULL";
+    }
+
     return (await query(`
       SELECT
         s.id,
         s.name,
         s.token,
         s.username,
+        ${withCredentials ? "s.password," : ""}
         s.created_at,
         s.class_id,
         c.book AS class_book,
@@ -392,65 +463,38 @@ function createPostgresStore(options) {
       FROM students s
       LEFT JOIN classes c ON c.id = s.class_id
       LEFT JOIN point_transactions pt ON pt.student_id = s.id
-      GROUP BY
-        s.id,
-        s.name,
-        s.token,
-        s.username,
-        s.created_at,
-        s.class_id,
-        c.book,
-        c.weekday,
-        c.start_time,
-        c.end_time
+      ${filter}
+      GROUP BY s.id, c.id
       ORDER BY
         CASE WHEN c.weekday IS NULL THEN 1 ELSE 0 END,
         c.weekday ASC,
         c.start_time ASC,
         c.book ASC,
-        total_points DESC,
+        ${withCredentials ? "" : "total_points DESC,"}
         s.name ASC
-    `)).map(mapStudentRow);
+    `, params)).map(mapStudentRow);
+  }
+
+  async function getAllStudents() {
+    return selectStudentsWithPoints();
   }
 
   async function getStudentsWithCredentials() {
-    return (await query(`
-      SELECT
-        s.id,
-        s.name,
-        s.token,
-        s.username,
-        s.password,
-        s.created_at,
-        s.class_id,
-        c.book AS class_book,
-        c.weekday AS class_weekday,
-        c.start_time AS class_start_time,
-        c.end_time AS class_end_time,
-        COALESCE(SUM(pt.points), 0)::int AS total_points,
-        COALESCE(SUM(CASE WHEN pt.created_at >= NOW() - INTERVAL '7 days' THEN pt.points ELSE 0 END), 0)::int AS recent_points
+    return selectStudentsWithPoints({ withCredentials: true });
+  }
+
+  async function getStudentsByProfessor(professorId, options = {}) {
+    return selectStudentsWithPoints({ withCredentials: Boolean(options.withCredentials), professorId });
+  }
+
+  async function getStudentIdsInProfessorScope(professorId, studentIds) {
+    const rows = await query(`
+      SELECT s.id
       FROM students s
-      LEFT JOIN classes c ON c.id = s.class_id
-      LEFT JOIN point_transactions pt ON pt.student_id = s.id
-      GROUP BY
-        s.id,
-        s.name,
-        s.token,
-        s.username,
-        s.password,
-        s.created_at,
-        s.class_id,
-        c.book,
-        c.weekday,
-        c.start_time,
-        c.end_time
-      ORDER BY
-        CASE WHEN c.weekday IS NULL THEN 1 ELSE 0 END,
-        c.weekday ASC,
-        c.start_time ASC,
-        c.book ASC,
-        s.name ASC
-    `)).map(mapStudentRow);
+      JOIN classes c ON c.id = s.class_id
+      WHERE s.id = ANY($1::int[]) AND COALESCE(c.professor_id, 1) = $2 AND c.archived_at IS NULL
+    `, [studentIds, professorId]);
+    return rows.map((row) => row.id);
   }
 
   async function assertStudentFields({ name, username, password, token, classId }, studentId = null) {
@@ -550,7 +594,7 @@ function createPostgresStore(options) {
     }
 
     await query("UPDATE students SET class_id = $1 WHERE id = ANY($2::int[])", [resolvedClassId, normalizedIds]);
-    return Promise.all(normalizedIds.map((studentId) => getStudentById(studentId)));
+    return getStudentsByIds(normalizedIds);
   }
 
   async function moveClassStudents(fromClassId, toClassId) {
@@ -698,19 +742,25 @@ function createPostgresStore(options) {
     if (existing.status !== "draft") throw new Error("Somente avaliacoes em rascunho podem ser excluidas.");
     const completedGrades = await queryOne("SELECT COUNT(*)::int AS total FROM assessment_grades WHERE assessment_id=$1 AND status!='pending'", [existing.id]);
     if (completedGrades.total > 0) throw new Error("Avaliacao com notas lancadas nao pode ser excluida.");
-    const oralTests = await query("SELECT id FROM assessment_oral_tests WHERE assessment_id=$1", [existing.id]);
-    for (const oralTest of oralTests) {
-      const attempts = await query("SELECT id FROM assessment_oral_attempts WHERE oral_test_id=$1", [oralTest.id]);
-      for (const attempt of attempts) {
-        await query("DELETE FROM assessment_oral_attempt_revisions WHERE attempt_id=$1", [attempt.id]);
-        await query("DELETE FROM assessment_oral_answers WHERE attempt_id=$1", [attempt.id]);
-      }
-      await query("DELETE FROM assessment_oral_attempts WHERE oral_test_id=$1", [oralTest.id]);
-      await query("DELETE FROM assessment_oral_test_questions WHERE oral_test_id=$1", [oralTest.id]);
-    }
-    await query("DELETE FROM assessment_oral_tests WHERE assessment_id=$1", [existing.id]);
     await ensureSchema();
     await sql.transaction((txn) => [
+      txn`DELETE FROM assessment_oral_attempt_revisions WHERE attempt_id IN (
+        SELECT attempt.id FROM assessment_oral_attempts attempt
+        JOIN assessment_oral_tests oral ON oral.id = attempt.oral_test_id
+        WHERE oral.assessment_id = ${existing.id}
+      )`,
+      txn`DELETE FROM assessment_oral_answers WHERE attempt_id IN (
+        SELECT attempt.id FROM assessment_oral_attempts attempt
+        JOIN assessment_oral_tests oral ON oral.id = attempt.oral_test_id
+        WHERE oral.assessment_id = ${existing.id}
+      )`,
+      txn`DELETE FROM assessment_oral_attempts WHERE oral_test_id IN (
+        SELECT id FROM assessment_oral_tests WHERE assessment_id = ${existing.id}
+      )`,
+      txn`DELETE FROM assessment_oral_test_questions WHERE oral_test_id IN (
+        SELECT id FROM assessment_oral_tests WHERE assessment_id = ${existing.id}
+      )`,
+      txn`DELETE FROM assessment_oral_tests WHERE assessment_id = ${existing.id}`,
       txn`DELETE FROM assessment_performance_reports WHERE assessment_id = ${existing.id}`,
       txn`DELETE FROM assessment_grades WHERE assessment_id = ${existing.id}`,
       txn`DELETE FROM assessments WHERE id = ${existing.id}`,
@@ -823,6 +873,20 @@ function createPostgresStore(options) {
     return calculateAcademicSummary(grades);
   }
 
+  // Resumo academico de varios alunos em uma consulta so (evita uma ida ao banco por aluno no dashboard).
+  async function getAcademicSummariesByStudentIds(studentIds) {
+    const ids = studentIds.map(Number);
+    const rows = ids.length ? (await query(`
+      SELECT ag.*, a.title, a.description, a.assessment_date, a.status AS assessment_status,
+        a.counts_for_ranking, a.published_at, c.book AS class_book, c.archived_at AS class_archived_at
+      FROM assessment_grades ag JOIN assessments a ON a.id=ag.assessment_id
+      JOIN classes c ON c.id=a.class_id
+      WHERE ag.student_id = ANY($1::int[]) AND a.status='published' AND a.counts_for_ranking AND c.archived_at IS NULL
+      ORDER BY a.assessment_date ASC, a.sort_order ASC, a.id ASC
+    `, [ids])).map(mapAssessmentGradeRow) : [];
+    return groupAcademicSummaries(ids, rows);
+  }
+
   async function getAssessmentPerformanceReport(assessmentId, studentId) {
     return mapAssessmentPerformanceReport(await queryOne(
       "SELECT * FROM assessment_performance_reports WHERE assessment_id=$1 AND student_id=$2",
@@ -881,18 +945,31 @@ function createPostgresStore(options) {
     return { ...template, questions: await getOralTemplateQuestions(template.id) };
   }
 
+  // Colunas das questoes como arrays paralelos, para inserir todas com um unico unnest.
+  function questionArrays(questions) {
+    return [
+      questions.map((question) => question.position),
+      questions.map((question) => question.prompt),
+      questions.map((question) => question.teacherNote ?? question.teacher_note ?? ""),
+      questions.map((question) => question.weight || 1),
+    ];
+  }
+
+  const QUESTIONS_UNNEST = "unnest($2::int[], $3::text[], $4::text[], $5::int[]) AS q(position, prompt, teacher_note, weight)";
+
   async function createOralTestTemplate(professorId, payload) {
     const normalized = normalizeOralTemplatePayload(payload);
     const inserted = await queryOne(`
-      INSERT INTO oral_test_templates (professor_id,title,description)
-      VALUES ($1,$2,$3) RETURNING id
-    `, [professorId, normalized.title, normalized.description]);
-    for (const question of normalized.questions) {
-      await query(`
+      WITH template AS (
+        INSERT INTO oral_test_templates (professor_id,title,description)
+        VALUES ($1,$6,$7) RETURNING id
+      ), questions AS (
         INSERT INTO oral_test_template_questions (template_id,position,prompt,teacher_note,weight)
-        VALUES ($1,$2,$3,$4,$5)
-      `, [inserted.id, question.position, question.prompt, question.teacherNote, question.weight]);
-    }
+        SELECT template.id, q.position, q.prompt, q.teacher_note, q.weight FROM template, ${QUESTIONS_UNNEST}
+        RETURNING id
+      )
+      SELECT id FROM template
+    `, [professorId, ...questionArrays(normalized.questions), normalized.title, normalized.description]);
     return getOralTestTemplateById(inserted.id);
   }
 
@@ -900,14 +977,15 @@ function createPostgresStore(options) {
     const template = await getOralTestTemplateById(templateId);
     assertOralTemplateOwner(template, options.professorId ?? template?.professor_id);
     const normalized = normalizeOralTemplatePayload(payload);
-    await query("UPDATE oral_test_templates SET title=$1, description=$2, updated_at=NOW() WHERE id=$3", [normalized.title, normalized.description, template.id]);
-    await query("DELETE FROM oral_test_template_questions WHERE template_id=$1", [template.id]);
-    for (const question of normalized.questions) {
-      await query(`
+    await ensureSchema();
+    await sql.transaction([
+      sql.query("UPDATE oral_test_templates SET title=$1, description=$2, updated_at=NOW() WHERE id=$3", [normalized.title, normalized.description, template.id]),
+      sql.query("DELETE FROM oral_test_template_questions WHERE template_id=$1", [template.id]),
+      sql.query(`
         INSERT INTO oral_test_template_questions (template_id,position,prompt,teacher_note,weight)
-        VALUES ($1,$2,$3,$4,$5)
-      `, [template.id, question.position, question.prompt, question.teacherNote, question.weight]);
-    }
+        SELECT $1, q.position, q.prompt, q.teacher_note, q.weight FROM ${QUESTIONS_UNNEST}
+      `, [template.id, ...questionArrays(normalized.questions)]),
+    ]);
     return getOralTestTemplateById(template.id);
   }
 
@@ -952,19 +1030,23 @@ function createPostgresStore(options) {
     if (existing) {
       const attempts = await queryOne("SELECT COUNT(*)::int AS total FROM assessment_oral_attempts WHERE oral_test_id=$1", [existing.id]);
       if (attempts.total > 0) throw new Error("Prova oral ja aplicada nao pode trocar de modelo.");
-      await query("DELETE FROM assessment_oral_test_questions WHERE oral_test_id=$1", [existing.id]);
-      await query("DELETE FROM assessment_oral_tests WHERE id=$1", [existing.id]);
+      await ensureSchema();
+      await sql.transaction([
+        sql.query("DELETE FROM assessment_oral_test_questions WHERE oral_test_id=$1", [existing.id]),
+        sql.query("DELETE FROM assessment_oral_tests WHERE id=$1", [existing.id]),
+      ]);
     }
     const inserted = await queryOne(`
-      INSERT INTO assessment_oral_tests (assessment_id,source_template_id,title,description,created_by_professor_id)
-      VALUES ($1,$2,$3,$4,$5) RETURNING id
-    `, [assessment.id, template.id, template.title, template.description, professorId]);
-    for (const question of template.questions) {
-      await query(`
+      WITH oral_test AS (
+        INSERT INTO assessment_oral_tests (assessment_id,source_template_id,title,description,created_by_professor_id)
+        VALUES ($1,$6,$7,$8,$9) RETURNING id
+      ), questions AS (
         INSERT INTO assessment_oral_test_questions (oral_test_id,position,prompt,teacher_note,weight)
-        VALUES ($1,$2,$3,$4,$5)
-      `, [inserted.id, question.position, question.prompt, question.teacher_note || "", question.weight || 1]);
-    }
+        SELECT oral_test.id, q.position, q.prompt, q.teacher_note, q.weight FROM oral_test, ${QUESTIONS_UNNEST}
+        RETURNING id
+      )
+      SELECT id FROM oral_test
+    `, [assessment.id, ...questionArrays(template.questions), template.id, template.title, template.description, professorId]);
     return getAssessmentOralTestById(inserted.id);
   }
 
@@ -1059,13 +1141,18 @@ function createPostgresStore(options) {
         options.professorId || null,
       ]);
     }
-    await query("DELETE FROM assessment_oral_answers WHERE attempt_id=$1", [attemptId]);
-    for (const answer of preparedAttempt.answered) {
-      await query(`
+    await ensureSchema();
+    await sql.transaction([
+      sql.query("DELETE FROM assessment_oral_answers WHERE attempt_id=$1", [attemptId]),
+      sql.query(`
         INSERT INTO assessment_oral_answers (attempt_id,question_id,result)
-        VALUES ($1,$2,$3)
-      `, [attemptId, answer.questionId, answer.result]);
-    }
+        SELECT $1, a.question_id, a.result FROM unnest($2::int[], $3::text[]) AS a(question_id, result)
+      `, [
+        attemptId,
+        preparedAttempt.answered.map((answer) => answer.questionId),
+        preparedAttempt.answered.map((answer) => answer.result),
+      ]),
+    ]);
     if (preparedAttempt.complete) {
       await query("UPDATE assessment_oral_tests SET locked_at=COALESCE(locked_at,NOW()), updated_at=NOW() WHERE id=$1", [oralTest.id]);
     }
@@ -1088,13 +1175,14 @@ function createPostgresStore(options) {
     }
 
     await ensureSchema();
-    const attempts = await query("SELECT id FROM assessment_oral_attempts WHERE student_id=$1", [numericId]);
-    for (const attempt of attempts) {
-      await query("DELETE FROM assessment_oral_attempt_revisions WHERE attempt_id=$1", [attempt.id]);
-      await query("DELETE FROM assessment_oral_answers WHERE attempt_id=$1", [attempt.id]);
-    }
-    await query("DELETE FROM assessment_oral_attempts WHERE student_id=$1", [numericId]);
     await sql.transaction((txn) => [
+      txn`DELETE FROM assessment_oral_attempt_revisions WHERE attempt_id IN (
+        SELECT id FROM assessment_oral_attempts WHERE student_id = ${numericId}
+      )`,
+      txn`DELETE FROM assessment_oral_answers WHERE attempt_id IN (
+        SELECT id FROM assessment_oral_attempts WHERE student_id = ${numericId}
+      )`,
+      txn`DELETE FROM assessment_oral_attempts WHERE student_id = ${numericId}`,
       txn`DELETE FROM assessment_grade_revisions WHERE student_id = ${numericId}`,
       txn`DELETE FROM assessment_performance_reports WHERE student_id = ${numericId}`,
       txn`DELETE FROM assessment_grades WHERE student_id = ${numericId}`,
@@ -1214,13 +1302,18 @@ function createPostgresStore(options) {
       return null;
     }
 
-    const history = await getStudentHistory(student.id);
+    const [history, totals, academic, assessments] = await Promise.all([
+      getStudentHistory(student.id),
+      getStudentTotals(student.id),
+      getStudentAcademicSummary(student.id),
+      getStudentAssessments(student.id),
+    ]);
 
     return {
       student,
-      totals: await getStudentTotals(student.id),
-      academic: await getStudentAcademicSummary(student.id),
-      assessments: await getStudentAssessments(student.id),
+      totals,
+      academic,
+      assessments,
       penalties: history.filter((item) => item.category === "bad_behavior"),
     };
   }
@@ -1243,6 +1336,8 @@ function createPostgresStore(options) {
     getProfessorByUsername,
     getAllStudents,
     getStudentsWithCredentials,
+    getStudentsByProfessor,
+    getStudentIdsInProfessorScope,
     addPoints,
     addPointsBulk,
     undoLatestPointBatch,
@@ -1265,6 +1360,7 @@ function createPostgresStore(options) {
     getAssessmentGradeRevisions,
     getStudentAssessments,
     getStudentAcademicSummary,
+    getAcademicSummariesByStudentIds,
     getAssessmentPerformanceReport,
     updateAssessmentPerformanceReport,
     getOralTestTemplates,

@@ -9,7 +9,6 @@ const {
   renderVisualizationsPage,
 } = require("../views");
 const {
-  filterStudentsByScope,
   getProfessorScope,
   normalizeProfessorId,
   normalizeSelectedClassId,
@@ -19,27 +18,35 @@ const { getBaseUrl } = require("./professor-route-helpers");
 function registerProfessorPageRoutes(router, { store, runtimeConfig }) {
   router.get("/dashboard", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classes, classIds } = await getProfessorScope(store, professorId);
+    const [{ classes, classIds }, students] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentsByProfessor(professorId),
+    ]);
     const selectedClassId = normalizeSelectedClassId(req.query.classId || "", classIds);
-    const students = filterStudentsByScope(await store.getAllStudents(), classIds);
-    const rankedStudents = await Promise.all(students.map(async (student) => {
-      const academic = await store.getStudentAcademicSummary(student.id);
-      const academicBonus = runtimeConfig.academicRankingEnabled ? academic.academicBonus : 0;
+    // Com o ranking combinado desligado o resumo academico nao aparece na tela; nao vale a consulta.
+    const academicSummaries = runtimeConfig.academicRankingEnabled
+      ? await store.getAcademicSummariesByStudentIds(students.map((student) => student.id))
+      : new Map();
+    const rankedStudents = students.map((student) => {
+      const academic = academicSummaries.get(student.id) || null;
+      const academicBonus = academic ? academic.academicBonus : 0;
       return {
         ...student,
         academic,
         academic_bonus: academicBonus,
-        ranking_average: runtimeConfig.academicRankingEnabled ? academic.averageScoreHundredths : null,
+        ranking_average: academic ? academic.averageScoreHundredths : null,
         ranking_score: Number(student.total_points || 0) + academicBonus,
       };
-    }));
+    });
     res.send(renderDashboard(rankedStudents, classes, selectedClassId, runtimeConfig.academicRankingEnabled));
   });
 
   router.get("/add", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classes, classIds } = await getProfessorScope(store, professorId);
-    const students = filterStudentsByScope(await store.getAllStudents(), classIds);
+    const [{ classes }, students] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentsByProfessor(professorId),
+    ]);
     res.send(renderManagementPage(classes, req.query.message || "", req.query.error || "", students));
   });
 
@@ -51,17 +58,21 @@ function registerProfessorPageRoutes(router, { store, runtimeConfig }) {
 
   router.get("/my-students", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classes, classIds } = await getProfessorScope(store, professorId);
+    const [{ classes, classIds }, students] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentsByProfessor(professorId),
+    ]);
     const selectedClassId = normalizeSelectedClassId(req.query.classId || "", classIds);
-    const students = filterStudentsByScope(await store.getAllStudents(), classIds);
     res.send(renderMyStudentsPage(students, classes, selectedClassId));
   });
 
   router.get("/points", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classes, classIds } = await getProfessorScope(store, professorId);
+    const [{ classes, classIds }, students] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentsByProfessor(professorId),
+    ]);
     const selectedClassId = normalizeSelectedClassId(req.query.classId || "", classIds);
-    const students = filterStudentsByScope(await store.getAllStudents(), classIds);
 
     res.send(
       renderPointsPage(
@@ -76,9 +87,11 @@ function registerProfessorPageRoutes(router, { store, runtimeConfig }) {
 
   router.get("/visualizations", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classes, classIds } = await getProfessorScope(store, professorId);
+    const [{ classes, classIds }, students] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentsByProfessor(professorId, { withCredentials: true }),
+    ]);
     const selectedClassId = normalizeSelectedClassId(req.query.classId || "", classIds);
-    const students = filterStudentsByScope(await store.getStudentsWithCredentials(), classIds);
 
     res.send(
       renderVisualizationsPage(

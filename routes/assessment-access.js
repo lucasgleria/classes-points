@@ -2,8 +2,10 @@ const { getProfessorScope, normalizeProfessorId } = require("./professor-scope")
 
 async function getScopedAssessment(store, req) {
   const professorId = normalizeProfessorId(req.auth.professorId);
-  const { classIds } = await getProfessorScope(store, professorId, { includeArchived: true });
-  const assessment = await store.getAssessmentById(req.params.id);
+  const [{ classIds }, assessment] = await Promise.all([
+    getProfessorScope(store, professorId, { includeArchived: true }),
+    store.getAssessmentById(req.params.id),
+  ]);
   return assessment && classIds.has(assessment.class_id) ? assessment : null;
 }
 

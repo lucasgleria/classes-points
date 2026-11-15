@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { INDEXES } = require("./db-postgres-schema");
 
 function ensureDirectory(filename) {
   if (filename === ":memory:") {
@@ -226,6 +227,11 @@ function initializeSqliteSchema(db, options) {
     if (!questionColumns.some((column) => column.name === "weight")) {
       db.exec(`ALTER TABLE ${table} ADD COLUMN weight INTEGER NOT NULL DEFAULT 1`);
     }
+  }
+
+  // Mesmos indices do Postgres; o SQL e compativel.
+  for (const statement of INDEXES) {
+    db.exec(statement);
   }
 
   const upsertProfessor = db.prepare(`

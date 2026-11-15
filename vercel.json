@@ -1,15 +1,11 @@
 {
-  "version": 2,
-  "builds": [
+  "framework": null,
+  "regions": ["gru1"],
+  "outputDirectory": "public",
+  "rewrites": [
     {
-      "src": "api/index.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.js"
+      "source": "/(.*)",
+      "destination": "/api/index.js"
     }
   ]
 }

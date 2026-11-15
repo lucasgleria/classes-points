@@ -240,3 +240,35 @@ test("Feature Oral: modelo reutilizavel, roster por pontos e observacao da tenta
   );
   context.close();
 });
+
+test("Desempenho: consultas por professor e resumo academico em lote equivalem ao caminho antigo", () => {
+  const context = fixture();
+  const { store, classroom } = context;
+  const otherClass = store.createClass({ book: "Kids 1", weekday: "Sabados", startTime: "13h00", endTime: "15h00" });
+  const ana = store.createStudent("Ana", { classId: classroom.id });
+  const bia = store.createStudent("Bia", { classId: classroom.id });
+  const caio = store.createStudent("Caio", { classId: otherClass.id });
+  store.addPoints(bia.id, "games", 5, "");
+
+  const assessment = store.createAssessment(classroom.id, { title: "Avaliacao 1" });
+  store.saveAssessmentGrades(assessment.id, [
+    { studentId: ana.id, status: "graded", otScore: "8", wtScore: "9" },
+    { studentId: bia.id, status: "absent" },
+  ]);
+  store.publishAssessment(assessment.id);
+  store.archiveClass(otherClass.id);
+
+  const scoped = store.getStudentsByProfessor(1);
+  const expected = store.getAllStudents().filter((student) => student.class_id === classroom.id);
+  assert.deepEqual(scoped, expected);
+  assert.equal(scoped[0].id, bia.id);
+  assert.equal(store.getStudentsByProfessor(1, { withCredentials: true }).every((student) => student.password), true);
+
+  assert.deepEqual(store.getStudentIdsInProfessorScope(1, [ana.id, caio.id, 9999]), [ana.id]);
+
+  const summaries = store.getAcademicSummariesByStudentIds([ana.id, bia.id, caio.id]);
+  for (const student of [ana, bia, caio]) {
+    assert.deepEqual(summaries.get(student.id), store.getStudentAcademicSummary(student.id));
+  }
+  context.close();
+});

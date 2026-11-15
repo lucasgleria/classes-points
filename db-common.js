@@ -1,4 +1,5 @@
 const { randomUUID } = require("node:crypto");
+const { calculateAcademicSummary } = require("./assessment-common");
 
 function slugifyName(name) {
   return name
@@ -321,10 +322,21 @@ function mapPerformanceProfile(row) {
   };
 }
 
+function groupAcademicSummaries(studentIds, grades) {
+  const gradesByStudent = new Map(studentIds.map((studentId) => [studentId, []]));
+  for (const grade of grades) {
+    gradesByStudent.get(grade.student_id)?.push(grade);
+  }
+  return new Map(
+    [...gradesByStudent].map(([studentId, studentGrades]) => [studentId, calculateAcademicSummary(studentGrades)])
+  );
+}
+
 module.exports = {
   buildClassLabel,
   createPassword,
   createToken,
+  groupAcademicSummaries,
   mapClassRow,
   mapAssessmentGradeRow,
   mapAssessmentPerformanceReport,

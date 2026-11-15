@@ -5,7 +5,6 @@ const {
   renderStudentPerformancePage,
 } = require("../views");
 const {
-  filterStudentsByScope,
   getProfessorScope,
   isStudentVisible,
   normalizeProfessorId,
@@ -15,8 +14,10 @@ const { buildCredentialsMessage } = require("./professor-route-helpers");
 function registerProfessorStudentRoutes(router, { store }) {
   router.get("/students/:id/history", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classIds } = await getProfessorScope(store, professorId);
-    const student = await store.getStudentById(req.params.id);
+    const [{ classIds }, student] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentById(req.params.id),
+    ]);
     if (!isStudentVisible(student, classIds)) {
       return res.status(404).send("Aluno nao encontrado.");
     }
@@ -26,29 +27,39 @@ function registerProfessorStudentRoutes(router, { store }) {
 
   router.get("/students/:id/details", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classIds } = await getProfessorScope(store, professorId);
-    const student = await store.getStudentById(req.params.id);
+    const [{ classIds }, student] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentById(req.params.id),
+    ]);
     if (!isStudentVisible(student, classIds)) {
       return res.status(404).send("Aluno nao encontrado.");
     }
 
+    const [totals, history, academic, assessments] = await Promise.all([
+      store.getStudentTotals(student.id),
+      store.getStudentHistory(student.id),
+      store.getStudentAcademicSummary(student.id),
+      store.getStudentAssessments(student.id, { publishedOnly: false }),
+    ]);
     return res.send(
       renderStudentDetailsPage(
         student,
-        await store.getStudentTotals(student.id),
-        await store.getStudentHistory(student.id),
+        totals,
+        history,
         req.query.message || "",
         req.query.error || "",
-        await store.getStudentAcademicSummary(student.id),
-        await store.getStudentAssessments(student.id, { publishedOnly: false })
+        academic,
+        assessments
       )
     );
   });
 
   router.get("/students/:id/performance", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classIds } = await getProfessorScope(store, professorId);
-    const student = await store.getStudentById(req.params.id);
+    const [{ classIds }, student] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentById(req.params.id),
+    ]);
     if (!isStudentVisible(student, classIds)) {
       return res.status(404).send("Aluno nao encontrado.");
     }
@@ -65,8 +76,10 @@ function registerProfessorStudentRoutes(router, { store }) {
 
   router.post("/students/:id/performance", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classIds } = await getProfessorScope(store, professorId);
-    const student = await store.getStudentById(req.params.id);
+    const [{ classIds }, student] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentById(req.params.id),
+    ]);
     if (!isStudentVisible(student, classIds)) {
       return res.status(404).send("Aluno nao encontrado.");
     }
@@ -128,14 +141,15 @@ function registerProfessorStudentRoutes(router, { store }) {
   router.post("/api/students/move", requireProfessor, async (req, res) => {
     try {
       const professorId = normalizeProfessorId(req.auth.professorId);
-      const { classIds } = await getProfessorScope(store, professorId);
-      const scopedStudentIds = new Set(
-        filterStudentsByScope(await store.getAllStudents(), classIds).map((student) => student.id)
-      );
       const selectedClassId = Number(req.body.classId);
       const requestedStudentIds = (Array.isArray(req.body.studentIds) ? req.body.studentIds : [req.body.studentIds])
         .map((studentId) => Number(studentId))
         .filter((studentId) => Number.isInteger(studentId) && studentId > 0);
+      const [{ classIds }, scopedIds] = await Promise.all([
+        getProfessorScope(store, professorId),
+        requestedStudentIds.length ? store.getStudentIdsInProfessorScope(professorId, requestedStudentIds) : [],
+      ]);
+      const scopedStudentIds = new Set(scopedIds);
 
       if (!Number.isInteger(selectedClassId) || !classIds.has(selectedClassId)) {
         throw new Error("Turma de destino nao encontrada.");
@@ -155,8 +169,10 @@ function registerProfessorStudentRoutes(router, { store }) {
   router.post("/api/students/:id/update", requireProfessor, async (req, res) => {
     try {
       const professorId = normalizeProfessorId(req.auth.professorId);
-      const { classIds } = await getProfessorScope(store, professorId);
-      const existingStudent = await store.getStudentById(req.params.id);
+      const [{ classIds }, existingStudent] = await Promise.all([
+        getProfessorScope(store, professorId),
+        store.getStudentById(req.params.id),
+      ]);
       const selectedClassId = Number(req.body.classId);
 
       if (!isStudentVisible(existingStudent, classIds)) {
@@ -186,8 +202,10 @@ function registerProfessorStudentRoutes(router, { store }) {
   router.post("/api/students/:id/delete", requireProfessor, async (req, res) => {
     try {
       const professorId = normalizeProfessorId(req.auth.professorId);
-      const { classIds } = await getProfessorScope(store, professorId);
-      const existingStudent = await store.getStudentById(req.params.id);
+      const [{ classIds }, existingStudent] = await Promise.all([
+        getProfessorScope(store, professorId),
+        store.getStudentById(req.params.id),
+      ]);
 
       if (!isStudentVisible(existingStudent, classIds)) {
         throw new Error("Aluno nao encontrado.");
@@ -204,14 +222,15 @@ function registerProfessorStudentRoutes(router, { store }) {
 
   router.get("/api/students", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classIds } = await getProfessorScope(store, professorId);
-    res.json(filterStudentsByScope(await store.getAllStudents(), classIds));
+    res.json(await store.getStudentsByProfessor(professorId));
   });
 
   router.get("/api/students/:id/history", requireProfessor, async (req, res) => {
     const professorId = normalizeProfessorId(req.auth.professorId);
-    const { classIds } = await getProfessorScope(store, professorId);
-    const student = await store.getStudentById(req.params.id);
+    const [{ classIds }, student] = await Promise.all([
+      getProfessorScope(store, professorId),
+      store.getStudentById(req.params.id),
+    ]);
 
     if (!isStudentVisible(student, classIds)) {
       return res.status(404).json({ error: "Aluno nao encontrado." });

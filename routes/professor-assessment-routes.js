@@ -39,23 +39,27 @@ function registerProfessorAssessmentRoutes(router, { store, runtimeConfig }) {
     if (!assessment) {
       return res.status(404).send("Avaliacao nao encontrada.");
     }
-    const grades = await store.getAssessmentGrades(assessment.id);
+    const professorId = normalizeProfessorId(req.auth.professorId);
+    // Turma arquivada nao aceita novos alunos, entao nao ha candidatos a buscar.
+    const [grades, classStudents, oralRoster, revisions] = await Promise.all([
+      store.getAssessmentGrades(assessment.id),
+      assessment.class_archived_at ? [] : store.getStudentsByProfessor(professorId),
+      store.getAssessmentOralRoster(assessment.id),
+      store.getAssessmentGradeRevisions(assessment.id),
+    ]);
     const rosterIds = new Set(grades.map((grade) => grade.student_id));
-    const candidates = (await store.getAllStudents()).filter(
+    const candidates = classStudents.filter(
       (student) => student.class_id === assessment.class_id && !rosterIds.has(student.id)
     );
-    const oralTest = await store.getAssessmentOralTest(assessment.id);
-    const oralResults = oralTest
-      ? Object.fromEntries(
-        (await store.getAssessmentOralRoster(assessment.id))
-          .filter((item) => item.attempt_status === "completed")
-          .map((item) => [String(item.student_id), item])
-      )
-      : {};
+    const oralResults = Object.fromEntries(
+      oralRoster
+        .filter((item) => item.attempt_status === "completed")
+        .map((item) => [String(item.student_id), item])
+    );
     return res.send(renderAssessmentGradesPage(
       assessment,
       grades,
-      await store.getAssessmentGradeRevisions(assessment.id),
+      revisions,
       candidates,
       oralResults,
       req.query.message || "",

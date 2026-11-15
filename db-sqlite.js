@@ -50,6 +50,7 @@ const {
   mapProfessorRow,
   mapStudentRow,
   slugifyName,
+  groupAcademicSummaries,
 } = require("./db-common");
 const {
   normalizeOralTemplatePayload,
@@ -318,7 +319,14 @@ function createSqliteStore(options) {
     );
   }
 
-  function getAllStudents() {
+  function selectStudentsWithPoints({ withCredentials = false, professorId = null } = {}) {
+    const params = [];
+    let filter = "";
+    if (professorId !== null) {
+      params.push(professorId);
+      filter = "WHERE COALESCE(c.professor_id, 1) = ? AND c.archived_at IS NULL";
+    }
+
     return db
       .prepare(`
         SELECT
@@ -326,6 +334,7 @@ function createSqliteStore(options) {
           s.name,
           s.token,
           s.username,
+          ${withCredentials ? "s.password," : ""}
           s.created_at,
           s.class_id,
           c.book AS class_book,
@@ -337,49 +346,46 @@ function createSqliteStore(options) {
         FROM students s
         LEFT JOIN classes c ON c.id = s.class_id
         LEFT JOIN point_transactions pt ON pt.student_id = s.id
+        ${filter}
         GROUP BY s.id
         ORDER BY
           CASE WHEN c.weekday IS NULL THEN 1 ELSE 0 END,
           c.weekday ASC,
           c.start_time ASC,
           c.book ASC,
-          total_points DESC,
+          ${withCredentials ? "" : "total_points DESC,"}
           s.name ASC
       `)
-      .all()
+      .all(...params)
       .map(mapStudentRow);
   }
 
+  function getAllStudents() {
+    return selectStudentsWithPoints();
+  }
+
   function getStudentsWithCredentials() {
+    return selectStudentsWithPoints({ withCredentials: true });
+  }
+
+  function getStudentsByProfessor(professorId, options = {}) {
+    return selectStudentsWithPoints({ withCredentials: Boolean(options.withCredentials), professorId });
+  }
+
+  function getStudentIdsInProfessorScope(professorId, studentIds) {
+    if (!studentIds.length) {
+      return [];
+    }
     return db
       .prepare(`
-        SELECT
-          s.id,
-          s.name,
-          s.token,
-          s.username,
-          s.password,
-          s.created_at,
-          s.class_id,
-          c.book AS class_book,
-          c.weekday AS class_weekday,
-          c.start_time AS class_start_time,
-          c.end_time AS class_end_time,
-          COALESCE(SUM(pt.points), 0) AS total_points,
-          COALESCE(SUM(CASE WHEN datetime(pt.created_at) >= datetime('now', '-7 days') THEN pt.points ELSE 0 END), 0) AS recent_points
+        SELECT s.id
         FROM students s
-        LEFT JOIN classes c ON c.id = s.class_id
-        LEFT JOIN point_transactions pt ON pt.student_id = s.id
-        GROUP BY s.id
-        ORDER BY
-          CASE WHEN c.weekday IS NULL THEN 1 ELSE 0 END,
-          c.weekday ASC,
-          c.start_time ASC,
-          c.book ASC,
-          s.name ASC
+        JOIN classes c ON c.id = s.class_id
+        WHERE s.id IN (${studentIds.map(() => "?").join(", ")})
+          AND COALESCE(c.professor_id, 1) = ? AND c.archived_at IS NULL
       `)
-      .all()
-      .map(mapStudentRow);
+      .all(...studentIds, professorId)
+      .map((row) => row.id);
   }
 
   function assertStudentFields({ name, username, password, token, classId }, studentId = null) {
@@ -827,6 +833,21 @@ function createSqliteStore(options) {
       (grade) => Boolean(grade.counts_for_ranking) && !grade.class_archived_at
     );
     return calculateAcademicSummary(grades);
+  }
+
+  function getAcademicSummariesByStudentIds(studentIds) {
+    const ids = studentIds.map(Number);
+    const rows = ids.length ? db.prepare(`
+      SELECT ag.*, a.title, a.description, a.assessment_date, a.status AS assessment_status,
+        a.counts_for_ranking, a.published_at, c.book AS class_book, c.archived_at AS class_archived_at
+      FROM assessment_grades ag
+      JOIN assessments a ON a.id = ag.assessment_id
+      JOIN classes c ON c.id = a.class_id
+      WHERE ag.student_id IN (${ids.map(() => "?").join(", ")})
+        AND a.status = 'published' AND a.counts_for_ranking AND c.archived_at IS NULL
+      ORDER BY a.assessment_date ASC, a.sort_order ASC, a.id ASC
+    `).all(...ids).map(mapAssessmentGradeRow) : [];
+    return groupAcademicSummaries(ids, rows);
   }
 
   function getAssessmentPerformanceReport(assessmentId, studentId) {
@@ -1343,6 +1364,8 @@ function createSqliteStore(options) {
     getProfessorByUsername,
     getAllStudents,
     getStudentsWithCredentials,
+    getStudentsByProfessor,
+    getStudentIdsInProfessorScope,
     addPoints,
     addPointsBulk,
     undoLatestPointBatch,
@@ -1365,6 +1388,7 @@ function createSqliteStore(options) {
     getAssessmentGradeRevisions,
     getStudentAssessments,
     getStudentAcademicSummary,
+    getAcademicSummariesByStudentIds,
     getAssessmentPerformanceReport,
     updateAssessmentPerformanceReport,
     getOralTestTemplates,

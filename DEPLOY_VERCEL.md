@@ -24,6 +24,7 @@
    `vercel env add REPORT_CITY production`
 4. Provisione o banco persistente:
    `vercel integration add neon -e production -m region=gru1`
+   A funcao roda na mesma regiao (`"regions": ["gru1"]` em `vercel.json`). Se o banco estiver em outra regiao, ajuste esse valor: cada consulta entre regioes diferentes custa uma latencia de rede inteira.
 5. Antes do deploy:
    `npm run predeploy:vercel`
 6. Publicacao em producao:
@@ -38,6 +39,7 @@
 - `ACADEMIC_RANKING_ENABLED`: `false` ate a aprovacao da ativacao do ranking combinado
 - `REPORT_TIMEZONE`: `America/Sao_Paulo`
 - `REPORT_CITY`: `Guarulhos`
+- `DEBUG_DB` (opcional): `1` registra nos logs da Vercel o tempo de cada consulta ao banco; deixe vazio no uso normal.
 
 ## Validacao antes do deploy
 
