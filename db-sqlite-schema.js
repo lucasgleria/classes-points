@@ -264,6 +264,9 @@ function initializeSqliteSchema(db, options) {
     );
   }
 
+  // Conta que saiu da configuracao perde o login, sem apagar a linha (mesma regra do Postgres).
+  const configuredIds = options.teacherAccounts.map((teacher) => Number(teacher.id));
+  db.prepare(`UPDATE professors SET password = '' WHERE id NOT IN (${configuredIds.map(() => "?").join(", ")})`).run(...configuredIds);
   db.prepare("UPDATE classes SET professor_id = 1 WHERE professor_id IS NULL").run();
 }
 

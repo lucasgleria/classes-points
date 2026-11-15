@@ -235,3 +235,23 @@ test("Seguranca: cabecalhos de protecao e POST de outro site recusado", async ()
   assert.equal(crossSite.status, 403);
   context.close();
 });
+
+test("Seguranca: professor removido de TEACHER_ACCOUNTS perde o login, sem apagar dados", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "points-removed-"));
+  const filename = path.join(dir, "test.sqlite");
+  const [first, second] = getRuntimeConfig().teacherAccounts;
+  const both = createDatabase({ filename, teacherAccounts: [{ ...first, username: "Nome Antigo" }, second] });
+  const classroom = both.createClass({ book: "Turma do removido", weekday: "Ter", startTime: "1", endTime: "2" }, { professorId: second.id });
+  both.close();
+
+  const onlyFirst = createDatabase({ filename, teacherAccounts: [{ ...first, username: "Lucas" }] });
+  const { app } = createApp({ store: onlyFirst, sessionSecret: "test-secret" });
+  const login = (username, password) => request(app).post("/login").type("form").send({ username, password });
+  assert.equal((await login(second.username, second.password)).headers.location, "/?error=invalid");
+  assert.equal((await login("Lucas", first.password)).headers.location, "/dashboard");
+  assert.equal((await login("Nome Antigo", first.password)).headers.location, "/?error=invalid", "usuario antigo nao vale mais");
+  assert.equal(onlyFirst.getProfessorById(second.id).password, "");
+  assert.ok(onlyFirst.getClassById(classroom.id), "turma do professor removido continua no banco");
+  onlyFirst.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+});

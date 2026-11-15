@@ -33,8 +33,8 @@
 ## Valores recomendados para as variaveis
 
 - `TEACHER_ACCOUNTS`: JSON com todos os professores, por exemplo
-  `[{"id":1,"username":"Lucas Leria","password":"<senha forte>"},{"id":2,"username":"Rosana","password":"<senha forte>"}]`.
-  Inclua sempre todos os professores: a cada inicializacao o app grava essas senhas no banco, e uma conta omitida manteria a senha antiga.
+  `[{"id":1,"username":"Lucas","password":"<senha forte>","displayName":"Lucas Leria"}]`.
+  Para remover um professor, tire-o da lista e refaca o deploy: a conta perde o login (os dados dele continuam no banco).
 - `SESSION_SECRET`: segredo aleatorio com pelo menos 32 caracteres, exclusivo do projeto da Vercel. Troca-lo encerra todas as sessoes abertas.
 - `ACADEMIC_RANKING_ENABLED`: `false` ate a aprovacao da ativacao do ranking combinado
 - `REPORT_TIMEZONE`: `America/Sao_Paulo`

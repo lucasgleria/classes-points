@@ -65,16 +65,17 @@ function getDevelopmentTeacherAccounts(env) {
     normalizeTeacherAccount(
       {
         id: 1,
-        username: env.TEACHER_USERNAME || "Lucas Leria",
+        username: env.TEACHER_USERNAME || "Lucas",
         password: env.TEACHER_PASSWORD || "dev-lucas",
+        displayName: "Lucas Leria",
       },
       1
     ),
     normalizeTeacherAccount(
       {
         id: 2,
-        username: "Rosana",
-        password: "dev-rosana",
+        username: "Professora Dev",
+        password: "dev-professora",
       },
       2
     ),

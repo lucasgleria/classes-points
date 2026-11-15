@@ -278,6 +278,11 @@ async function initializePostgresSchema(sql, options) {
         ]
       )
     ),
+    // Conta que saiu de TEACHER_ACCOUNTS perde o login (senha vazia nunca confere).
+    // A linha fica, para nao quebrar turmas, fichas e revisoes ligadas a ela.
+    sql.query("UPDATE professors SET password = '' WHERE id <> ALL($1::int[])", [
+      options.teacherAccounts.map((teacher) => Number(teacher.id)),
+    ]),
     sql.query(`
       UPDATE classes
       SET professor_id = 1

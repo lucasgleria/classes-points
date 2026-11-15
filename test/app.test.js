@@ -524,19 +524,19 @@ test("Professor consegue criar turma e aluno usando cookie em nova instancia", a
   cleanupDir(temp.dir);
 });
 
-test("Rosana consegue autenticar com as credenciais dedicadas", async () => {
+test("Segundo professor consegue autenticar com as credenciais dedicadas", async () => {
   const { store, temp } = createStoreFixture();
   const { app } = createApp({ store, sessionSecret: "test-secret" });
-  const rosana = teacherAccounts.find((account) => account.username === "Rosana");
+  const rosana = teacherAccounts[1];
 
   await request(app)
     .post("/login")
     .type("form")
-    .send({ username: "Rosana", password: rosana.password })
+    .send({ username: teacherAccounts[1].username, password: rosana.password })
     .expect(302)
     .expect("Location", "/dashboard");
 
-  assert.ok(await verifyProfessor(store, "Rosana", rosana.password));
+  assert.ok(await verifyProfessor(store, teacherAccounts[1].username, rosana.password));
 
   store.close();
   cleanupDir(temp.dir);
@@ -902,7 +902,7 @@ test("Professores enxergam somente as proprias turmas e alunos", async () => {
   await rosanaAgent
     .post("/login")
     .type("form")
-    .send({ username: "Rosana", password: teacherAccounts.find((account) => account.username === "Rosana").password })
+    .send({ username: teacherAccounts[1].username, password: teacherAccounts[1].password })
     .expect(302);
 
   const lucasDashboard = await lucasAgent.get("/dashboard").expect(200);
