@@ -1196,3 +1196,36 @@ button,
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* Modo visitante */
+.visitor-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+  padding: 10px 16px;
+  background: var(--primary-strong);
+  color: #fff;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.visitor-banner a {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.is-visitor-locked button:disabled,
+.is-visitor-locked input[type="submit"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.visitor-card p {
+  color: var(--muted);
+}

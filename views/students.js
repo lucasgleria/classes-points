@@ -26,8 +26,8 @@ function renderStudentHistoryPage(student, history) {
           <a class="ghost-link" href="/dashboard">← Voltar</a>
           <div>
             <p class="eyebrow">Histórico completo</p>
-            <h1>${student.name}</h1>
-            <p>${student.class_label}</p>
+            <h1>${escapeHtml(student.name)}</h1>
+            <p>${escapeHtml(student.class_label)}</p>
           </div>
         </header>
         <section class="card">
@@ -55,7 +55,7 @@ function renderStudentView(summary) {
               <strong>${Math.abs(item.points)} pts perdidos</strong>
               <small>${new Date(item.created_at).toLocaleString("pt-BR")}</small>
             </div>
-            <p>${item.note}</p>
+            <p>${escapeHtml(item.note)}</p>
           </li>`
         )
         .join("")
@@ -80,10 +80,10 @@ function renderStudentView(summary) {
         <header class="topbar simple">
           <div>
             <p class="eyebrow">Minha pontuação</p>
-            <h1>${summary.student.name}</h1>
-            <p>${summary.student.class_label}</p>
+            <h1>${escapeHtml(summary.student.name)}</h1>
+            <p>${escapeHtml(summary.student.class_label)}</p>
           </div>
-          <a class="ghost-link" href="/student/${summary.student.token}/logout">Sair</a>
+          <a class="ghost-link" href="/student/${escapeHtml(summary.student.token)}/logout">Sair</a>
         </header>
         <section class="card score-hero">
           <span class="score-hero__label">Total geral</span>
@@ -123,7 +123,7 @@ function renderMyStudentsPage(students, classes = [], selectedClassId = "") {
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Turma</p>
-                  <h2>${group.label}</h2>
+                  <h2>${escapeHtml(group.label)}</h2>
                   <p>${group.students.length} aluno(s).</p>
                 </div>
               </div>
@@ -133,8 +133,8 @@ function renderMyStudentsPage(students, classes = [], selectedClassId = "") {
                     (student) => `
                       <article class="student-directory-item">
                         <div>
-                          <strong>${student.name}</strong>
-                          <small>@${student.username}</small>
+                          <strong>${escapeHtml(student.name)}</strong>
+                          <small>@${escapeHtml(student.username)}</small>
                         </div>
                         <div class="inline-actions">
                           <span class="points-pill">${student.total_points || 0} pts</span>
@@ -224,8 +224,8 @@ function renderStudentDetailsPage(student, totals = {}, history = [], message = 
           title: "Detalhes do aluno",
           action: `<a class="ghost-link" href="/my-students">Voltar</a>`,
         })}
-        ${message ? `<p class="success-banner">${message}</p>` : ""}
-        ${errorMessage ? `<p class="error-banner">${errorMessage}</p>` : ""}
+        ${message ? `<p class="success-banner">${escapeHtml(message)}</p>` : ""}
+        ${errorMessage ? `<p class="error-banner">${escapeHtml(errorMessage)}</p>` : ""}
         <section class="card student-detail-hero">
           <div class="section-heading">
             <div>
@@ -373,8 +373,8 @@ function renderStudentPerformancePage(student, profile, message = "", errorMessa
           title: "Ficha de Desempenho",
           action: `<a class="ghost-link" href="/my-students">Voltar</a>`,
         })}
-        ${message ? `<p class="success-banner">${message}</p>` : ""}
-        ${errorMessage ? `<p class="error-banner">${errorMessage}</p>` : ""}
+        ${message ? `<p class="success-banner">${escapeHtml(message)}</p>` : ""}
+        ${errorMessage ? `<p class="error-banner">${escapeHtml(errorMessage)}</p>` : ""}
         <section class="card performance-card">
           <div class="section-heading">
             <div>

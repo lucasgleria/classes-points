@@ -1329,6 +1329,35 @@ function createSqliteStore(options) {
     return buildStudentTotals(rows);
   }
 
+  function countRecentLoginFailures(keys, minutes) {
+    if (!keys.length) {
+      return {};
+    }
+    const rows = db.prepare(`
+      SELECT attempt_key, COUNT(*) AS total
+      FROM login_attempts
+      WHERE attempt_key IN (${keys.map(() => "?").join(", ")}) AND created_at > datetime('now', ?)
+      GROUP BY attempt_key
+    `).all(...keys, `-${Number(minutes)} minutes`);
+    return Object.fromEntries(rows.map((row) => [row.attempt_key, Number(row.total)]));
+  }
+
+  function recordLoginFailure(keys) {
+    const insert = db.prepare("INSERT INTO login_attempts (attempt_key) VALUES (?)");
+    db.transaction(() => {
+      for (const key of keys) {
+        insert.run(key);
+      }
+      db.prepare("DELETE FROM login_attempts WHERE created_at < datetime('now', '-1 day')").run();
+    })();
+  }
+
+  function clearLoginFailures(keys) {
+    if (keys.length) {
+      db.prepare(`DELETE FROM login_attempts WHERE attempt_key IN (${keys.map(() => "?").join(", ")})`).run(...keys);
+    }
+  }
+
   function getStudentSummaryByToken(token) {
     const student = getStudentByToken(token);
     if (!student) {
@@ -1406,6 +1435,9 @@ function createSqliteStore(options) {
     getStudentHistory,
     getStudentTotals,
     getStudentSummaryByToken,
+    countRecentLoginFailures,
+    recordLoginFailure,
+    clearLoginFailures,
     close() {
       db.close();
     },

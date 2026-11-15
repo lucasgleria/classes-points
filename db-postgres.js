@@ -1296,6 +1296,29 @@ function createPostgresStore(options) {
     return buildStudentTotals(rows);
   }
 
+  // Tentativas de login com falha, por chave (conta ou IP), para o limite de tentativas.
+  async function countRecentLoginFailures(keys, minutes) {
+    const rows = await query(`
+      SELECT attempt_key, COUNT(*)::int AS total
+      FROM login_attempts
+      WHERE attempt_key = ANY($1::text[]) AND created_at > NOW() - make_interval(mins => $2)
+      GROUP BY attempt_key
+    `, [keys, minutes]);
+    return Object.fromEntries(rows.map((row) => [row.attempt_key, Number(row.total)]));
+  }
+
+  async function recordLoginFailure(keys) {
+    await ensureSchema();
+    await sql.transaction([
+      sql.query("INSERT INTO login_attempts (attempt_key) SELECT unnest($1::text[])", [keys]),
+      sql.query("DELETE FROM login_attempts WHERE created_at < NOW() - INTERVAL '1 day'"),
+    ]);
+  }
+
+  async function clearLoginFailures(keys) {
+    await query("DELETE FROM login_attempts WHERE attempt_key = ANY($1::text[])", [keys]);
+  }
+
   async function getStudentSummaryByToken(token) {
     const student = await getStudentByToken(token);
     if (!student) {
@@ -1378,6 +1401,9 @@ function createPostgresStore(options) {
     getStudentHistory,
     getStudentTotals,
     getStudentSummaryByToken,
+    countRecentLoginFailures,
+    recordLoginFailure,
+    clearLoginFailures,
     async close() {},
   };
 }

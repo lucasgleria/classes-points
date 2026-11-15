@@ -1,4 +1,5 @@
 const {
+  escapeHtml,
   pageTemplate,
   renderProfessorNav,
   renderProfessorTopbar,
@@ -144,7 +145,7 @@ function renderGuidePage() {
                 <article class="card guide-card">
                   <div>
                     <p class="eyebrow">Feature</p>
-                    <h2>${item.title}</h2>
+                    <h2>${escapeHtml(item.title)}</h2>
                     <p>${item.text}</p>
                   </div>
                   <ol>

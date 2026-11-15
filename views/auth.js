@@ -1,4 +1,4 @@
-const { pageTemplate } = require("./shared");
+const { escapeHtml, pageTemplate } = require("./shared");
 
 function renderProfessorLogin(errorMessage = "") {
   return pageTemplate({
@@ -14,11 +14,18 @@ function renderProfessorLogin(errorMessage = "") {
         </section>
         <section class="card form-card">
           <h2>Entrar</h2>
-          ${errorMessage ? `<p class="error-banner">${errorMessage}</p>` : ""}
+          ${errorMessage ? `<p class="error-banner">${escapeHtml(errorMessage)}</p>` : ""}
           <form method="post" action="/login" class="stack-form">
             <label>Usuário<input name="username" autocomplete="username" required /></label>
             <label>Senha<input name="password" type="password" autocomplete="current-password" required /></label>
             <button type="submit">Acessar dashboard</button>
+          </form>
+        </section>
+        <section class="card visitor-card">
+          <h2>Conhecendo o projeto?</h2>
+          <p>Explore o sistema com dados fictícios, sem precisar de conta. Nenhuma alteração é salva.</p>
+          <form method="post" action="/visitor" class="stack-form">
+            <button type="submit" class="ghost-link">Entrar como visitante</button>
           </form>
         </section>
       </main>`,
@@ -40,14 +47,14 @@ function renderStudentLogin(student, errorMessage = "") {
       <main class="shell auth-shell">
         <section class="card hero-card">
           <p class="eyebrow">Área do aluno</p>
-          <h1>${student.name}</h1>
-          <p class="lead">${student.class_label}</p>
+          <h1>${escapeHtml(student.name)}</h1>
+          <p class="lead">${escapeHtml(student.class_label)}</p>
           <p class="lead">Acesse sua pontuação individual usando seu usuário e senha.</p>
         </section>
         <section class="card form-card">
           <h2>Entrar</h2>
-          ${errorMessage ? `<p class="error-banner">${errorMessage}</p>` : ""}
-          <form method="post" action="/student/${student.token}/login" class="stack-form">
+          ${errorMessage ? `<p class="error-banner">${escapeHtml(errorMessage)}</p>` : ""}
+          <form method="post" action="/student/${escapeHtml(student.token)}/login" class="stack-form">
             <label>Usuário<input name="username" autocomplete="username" required /></label>
             <label>Senha<input name="password" type="password" autocomplete="current-password" required /></label>
             <button type="submit">Ver meus pontos</button>

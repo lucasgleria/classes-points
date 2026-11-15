@@ -8,7 +8,7 @@ function pageTemplate({ title, body, pageClass = "", scriptConfig = null }) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${title}</title>
+    <title>${escapeHtml(title)}</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body class="${pageClass}">
@@ -137,7 +137,7 @@ function renderClassFilter(classes, selectedClassId, basePath) {
     `<option value="">Todas as turmas</option>`,
     ...classes.map(
       (classroom) =>
-        `<option value="${classroom.id}" ${String(selectedClassId) === String(classroom.id) ? "selected" : ""}>${classroom.class_label}</option>`
+        `<option value="${classroom.id}" ${String(selectedClassId) === String(classroom.id) ? "selected" : ""}>${escapeHtml(classroom.class_label)}</option>`
     ),
   ].join("");
 
@@ -163,7 +163,7 @@ function renderHistoryRows(history) {
       const pointsClass = isNegative ? "history-points history-points--negative" : "history-points history-points--positive";
       const formattedPoints = isNegative ? `${item.points} pts` : `+${item.points} pts`;
       const note = item.note
-        ? `<div class="history-note"><span class="history-note__label">Justificativa</span><strong>${item.note}</strong></div>`
+        ? `<div class="history-note"><span class="history-note__label">Justificativa</span><strong>${escapeHtml(item.note)}</strong></div>`
         : "";
 
       return `

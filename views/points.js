@@ -1,4 +1,5 @@
 const {
+  escapeHtml,
   groupStudentsByClass,
   pageTemplate,
   renderActionEmptyState,
@@ -28,9 +29,9 @@ function renderPointsPage(students, classes = [], selectedClassId = "", message 
             action: "Adicionar alunos",
           })
         : `
-          <section class="student-batch-group" data-class-label="${selectedGroup.label}">
+          <section class="student-batch-group" data-class-label="${escapeHtml(selectedGroup.label)}">
             <div class="student-batch-group__header">
-              <strong>${selectedGroup.label}</strong>
+              <strong>${escapeHtml(selectedGroup.label)}</strong>
               <button type="button" class="ghost-link batch-select-button" data-select-group="${selectedGroup.id || "unassigned"}">Marcar turma</button>
             </div>
             <div class="student-batch-list">
@@ -38,8 +39,8 @@ function renderPointsPage(students, classes = [], selectedClassId = "", message 
                 .map(
                   (student) => `
                     <label class="student-check">
-                      <input type="checkbox" name="studentIds" value="${student.id}" data-student-checkbox data-student-name="${student.name}" data-group="${selectedGroup.id || "unassigned"}" />
-                      <span>${student.name}</span>
+                      <input type="checkbox" name="studentIds" value="${student.id}" data-student-checkbox data-student-name="${escapeHtml(student.name)}" data-group="${selectedGroup.id || "unassigned"}" />
+                      <span>${escapeHtml(student.name)}</span>
                     </label>`
                 )
                 .join("")}
@@ -57,8 +58,8 @@ function renderPointsPage(students, classes = [], selectedClassId = "", message 
           title: "Registrar pontos",
           action: students.length ? `<form method="post" action="/api/points/undo" data-confirm-action data-confirm-title="Desfazer ultimo lancamento" data-confirm-message="Desfazer o ultimo lancamento das suas turmas?"><button type="submit" class="ghost-link">Desfazer ultimo</button></form>` : "",
         })}
-        ${message ? `<p class="success-banner">${message}</p>` : ""}
-        ${errorMessage ? `<p class="error-banner">${errorMessage}</p>` : ""}
+        ${message ? `<p class="success-banner">${escapeHtml(message)}</p>` : ""}
+        ${errorMessage ? `<p class="error-banner">${escapeHtml(errorMessage)}</p>` : ""}
         ${classes.length ? renderClassFilter(classes, effectiveClassId, "/points") : ""}
         <section class="card">
           <h2>Novo lancamento</h2>

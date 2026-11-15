@@ -23,7 +23,6 @@
     "@neondatabase/serverless": "^1.1.0",
     "better-sqlite3": "^12.9.0",
     "express": "^5.2.1",
-    "express-session": "^1.19.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {

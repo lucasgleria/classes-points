@@ -1,19 +1,21 @@
 const crypto = require("node:crypto");
+const { safeEqual: safePasswordEqual, verifyAgainstDummy, verifyPassword } = require("./password-hash");
 
 const AUTH_COOKIE_NAME = "points-codex.auth";
 const AUTH_COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
+const VISITOR_COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 2;
 
 async function verifyProfessor(store, username, password) {
   const professor = await store.getProfessorByUsername(username);
-  if (!professor || professor.password !== password) {
-    return null;
+  if (!professor) {
+    return verifyAgainstDummy(password) || null;
   }
-  return professor;
+  return verifyPassword(password, professor.password) ? professor : null;
 }
 
 async function verifyStudent(store, token, username, password) {
   const student = await store.getStudentByUsernameAndToken(token, username);
-  if (!student || student.password !== password) {
+  if (!student || typeof password !== "string" || !safePasswordEqual(password, student.password)) {
     return null;
   }
   return student;
@@ -87,10 +89,10 @@ function createAuthToolkit({ secret, secure }) {
     return crypto.timingSafeEqual(leftBuffer, rightBuffer);
   }
 
-  function buildCookiePayload(payload) {
+  function buildCookiePayload(payload, maxAge) {
     return {
       ...payload,
-      exp: Date.now() + AUTH_COOKIE_MAX_AGE_MS,
+      exp: Date.now() + maxAge,
     };
   }
 
@@ -102,8 +104,8 @@ function createAuthToolkit({ secret, secure }) {
     return JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
   }
 
-  function createSignedCookieValue(payload) {
-    const encodedPayload = encodePayload(buildCookiePayload(payload));
+  function createSignedCookieValue(payload, maxAge) {
+    const encodedPayload = encodePayload(buildCookiePayload(payload, maxAge));
     return `${encodedPayload}.${sign(encodedPayload)}`;
   }
 
@@ -143,14 +145,14 @@ function createAuthToolkit({ secret, secure }) {
     return payload;
   }
 
-  function writeCookie(res, payload) {
-    const cookie = serializeCookie(AUTH_COOKIE_NAME, createSignedCookieValue(payload), {
+  function writeCookie(res, payload, maxAge = AUTH_COOKIE_MAX_AGE_MS) {
+    const cookie = serializeCookie(AUTH_COOKIE_NAME, createSignedCookieValue(payload, maxAge), {
       path: "/",
       httpOnly: true,
       sameSite: "Lax",
       secure,
-      maxAge: AUTH_COOKIE_MAX_AGE_MS,
-      expires: new Date(Date.now() + AUTH_COOKIE_MAX_AGE_MS),
+      maxAge,
+      expires: new Date(Date.now() + maxAge),
     });
 
     res.setHeader("Set-Cookie", cookie);
@@ -166,6 +168,10 @@ function createAuthToolkit({ secret, secure }) {
         role: "professor",
         professorId: professor.id,
       });
+    },
+    // Visitante do portfolio: sem professorId, entao as rotas reais (requireProfessor) o recusam.
+    setVisitor(res) {
+      writeCookie(res, { role: "visitor" }, VISITOR_COOKIE_MAX_AGE_MS);
     },
     setStudent(res, student) {
       writeCookie(res, {

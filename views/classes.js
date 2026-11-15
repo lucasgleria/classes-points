@@ -1,4 +1,5 @@
 const {
+  escapeHtml,
   pageTemplate,
   renderActionEmptyState,
   renderConfirmModal,
@@ -13,20 +14,20 @@ function renderClassAdminCards(classes = []) {
         .map(
           (classroom) => `
             <article class="card class-admin-card">
-              <h2>${classroom.class_label}</h2>
+              <h2>${escapeHtml(classroom.class_label)}</h2>
               <p class="panel-description">Edite os dados da turma, arquive uma sala encerrada ou apague uma turma vazia.</p>
               <form method="post" action="/api/classes/${classroom.id}/update" class="stack-form">
-                <label>Livro<input name="book" value="${classroom.book}" required /></label>
-                <label>Dia da semana<input name="weekday" value="${classroom.weekday}" required /></label>
-                <label>Horario de inicio<input name="startTime" value="${classroom.start_time}" required /></label>
-                <label>Horario de fim<input name="endTime" value="${classroom.end_time}" required /></label>
+                <label>Livro<input name="book" value="${escapeHtml(classroom.book)}" required /></label>
+                <label>Dia da semana<input name="weekday" value="${escapeHtml(classroom.weekday)}" required /></label>
+                <label>Horario de inicio<input name="startTime" value="${escapeHtml(classroom.start_time)}" required /></label>
+                <label>Horario de fim<input name="endTime" value="${escapeHtml(classroom.end_time)}" required /></label>
                 <button type="submit">Salvar turma</button>
               </form>
               <div class="inline-actions">
-                <form method="post" action="/api/classes/${classroom.id}/archive" data-confirm-action data-confirm-title="Arquivar turma" data-confirm-message="Arquivar ${classroom.class_label}? Ela saira dos fluxos ativos, sem apagar alunos ou historico.">
+                <form method="post" action="/api/classes/${classroom.id}/archive" data-confirm-action data-confirm-title="Arquivar turma" data-confirm-message="Arquivar ${escapeHtml(classroom.class_label)}? Ela saira dos fluxos ativos, sem apagar alunos ou historico.">
                   <button type="submit" class="ghost-link">Arquivar</button>
                 </form>
-                <form method="post" action="/api/classes/${classroom.id}/delete" data-confirm-action data-confirm-title="Apagar turma" data-confirm-message="Apagar ${classroom.class_label}? Esta acao so funciona se a turma estiver vazia.">
+                <form method="post" action="/api/classes/${classroom.id}/delete" data-confirm-action data-confirm-title="Apagar turma" data-confirm-message="Apagar ${escapeHtml(classroom.class_label)}? Esta acao so funciona se a turma estiver vazia.">
                   <button type="submit" class="danger-button">Apagar</button>
                 </form>
               </div>
@@ -43,7 +44,7 @@ function renderClassAdminCards(classes = []) {
 
 function renderManagementPage(classes = [], message = "", errorMessage = "", students = []) {
   const classOptions = classes.length
-    ? classes.map((classroom) => `<option value="${classroom.id}">${classroom.class_label}</option>`).join("")
+    ? classes.map((classroom) => `<option value="${classroom.id}">${escapeHtml(classroom.class_label)}</option>`).join("")
     : `<option value="">Cadastre uma turma primeiro</option>`;
 
   return pageTemplate({
@@ -53,8 +54,8 @@ function renderManagementPage(classes = [], message = "", errorMessage = "", stu
       ${renderProfessorNav()}
       <main class="shell">
         ${renderProfessorTopbar({ eyebrow: "Gerenciamento", title: "Turmas e alunos" })}
-        ${message ? `<p class="success-banner">${message}</p>` : ""}
-        ${errorMessage ? `<p class="error-banner">${errorMessage}</p>` : ""}
+        ${message ? `<p class="success-banner">${escapeHtml(message)}</p>` : ""}
+        ${errorMessage ? `<p class="error-banner">${escapeHtml(errorMessage)}</p>` : ""}
         ${renderOnboarding(classes, students)}
         <section class="management-section">
           <div class="section-heading">
@@ -134,8 +135,8 @@ function renderMyClassesPage(classes = [], message = "", errorMessage = "") {
           title: "Minhas Turmas",
           action: `<a class="ghost-link" href="/add#new-class">Criar turma</a>`,
         })}
-        ${message ? `<p class="success-banner">${message}</p>` : ""}
-        ${errorMessage ? `<p class="error-banner">${errorMessage}</p>` : ""}
+        ${message ? `<p class="success-banner">${escapeHtml(message)}</p>` : ""}
+        ${errorMessage ? `<p class="error-banner">${escapeHtml(errorMessage)}</p>` : ""}
         <section class="card guide-intro">
           <h2>Gerencie suas turmas</h2>
           <p>Edite informacoes de horario e livro, arquive turmas encerradas ou apague turmas vazias. Alunos e historico ficam preservados ao arquivar.</p>

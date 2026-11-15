@@ -209,6 +209,18 @@ Implementacoes principais:
 - O aluno autenticado nao pode abrir pagina de outro token.
 - Professores so acessam turmas e alunos do proprio `professor_id`.
 - Operacoes sensiveis validam escopo antes de consultar ou gravar dados.
+- Senhas dos professores ficam no banco apenas como hash `scrypt` (`password-hash.js`); a fonte continua sendo `TEACHER_ACCOUNTS`.
+- Limite de tentativas (`login-throttle.js`, tabela `login_attempts`): 5 falhas por conta ou 40 por IP em 15 minutos bloqueiam novos logins, inclusive com a senha certa.
+- Todo texto vindo do banco ou da URL passa por `escapeHtml` antes de ir para a pagina.
+- Cabecalhos de protecao: sem iframe (`X-Frame-Options: DENY`), `nosniff`, `Referrer-Policy: same-origin` e sem `X-Powered-By`.
+- POST vindo de outro site (cabecalho `Origin`/`Referer` de outro host) e recusado com 403.
+
+### Modo visitante (portfolio)
+
+- Entrada em um clique: botao "Entrar como visitante" na tela de login ou link direto `/demo`.
+- O visitante usa um banco SQLite em memoria com dados ficticios (`demo-seed.js`), separado do banco real.
+- Toda acao de escrita e recusada no servidor (`routes/visitor.js`); a tela mostra a faixa "Modo visitante" e desativa os botoes de envio.
+- O cookie de visitante dura 2 horas e nao tem `professorId`, entao nao abre as rotas reais.
 
 Cuidados de producao:
 

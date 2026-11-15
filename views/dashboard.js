@@ -1,4 +1,5 @@
 const {
+  escapeHtml,
   groupStudentsByClass,
   pageTemplate,
   renderActionEmptyState,
@@ -22,8 +23,8 @@ function renderDashboard(students, classes = [], selectedClassId = "", academicR
                   <div class="ranking-item__main">
                     <div>
                       <span class="ranking-position">${index < 3 ? ["Ouro", "Prata", "Bronze"][index] : `#${index + 1}`}</span>
-                      <strong>${student.name}</strong>
-                      <small>@${student.username}</small>
+                      <strong>${escapeHtml(student.name)}</strong>
+                      <small>@${escapeHtml(student.username)}</small>
                       <small class="trend-pill ${Number(student.recent_points || 0) >= 0 ? "trend-pill--up" : "trend-pill--down"}">
                         7 dias: ${Number(student.recent_points || 0) >= 0 ? "+" : ""}${student.recent_points || 0} pts
                       </small>
@@ -32,7 +33,7 @@ function renderDashboard(students, classes = [], selectedClassId = "", academicR
                   </div>
                   <div class="ranking-item__actions">
                     ${academicRankingEnabled ? `<small>Base: ${student.total_points} · Bonus academico: +${student.academic_bonus || 0}</small>` : ""}
-                    <button type="button" class="ghost-link ranking-history-button" data-history-toggle data-student-id="${student.id}" data-student-name="${student.name}">
+                    <button type="button" class="ghost-link ranking-history-button" data-history-toggle data-student-id="${student.id}" data-student-name="${escapeHtml(student.name)}">
                       Historico
                     </button>
                   </div>
@@ -45,7 +46,7 @@ function renderDashboard(students, classes = [], selectedClassId = "", academicR
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Turma</p>
-                  <h2>${group.label}</h2>
+                  <h2>${escapeHtml(group.label)}</h2>
                   <p>${group.students.length} aluno(s), ${total} pts no total, media ${average} pts.</p>
                 </div>
               </div>

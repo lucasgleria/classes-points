@@ -20,6 +20,14 @@ function setupMenu() {
   });
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function renderHistoryItems(history) {
   if (!history.length) {
     return `<div class="empty-state">Histórico vazio.</div>`;
@@ -32,13 +40,13 @@ function renderHistoryItems(history) {
       const pointsClass = isNegative ? "history-points history-points--negative" : "history-points history-points--positive";
       const formattedPoints = isNegative ? `${item.points} pts` : `+${item.points} pts`;
       const note = item.note
-        ? `<div class="history-note"><span class="history-note__label">Justificativa</span><strong>${item.note}</strong></div>`
+        ? `<div class="history-note"><span class="history-note__label">Justificativa</span><strong>${escapeHtml(item.note)}</strong></div>`
         : "";
 
       return `
         <article class="history-row">
           <div class="history-row__top">
-            <strong>${item.category}</strong>
+            <strong>${escapeHtml(item.category)}</strong>
             <span class="${pointsClass}">${formattedPoints}</span>
           </div>
           <span class="history-date">${date}</span>
@@ -318,6 +326,24 @@ function setupOralAttemptProgress() {
   update();
 }
 
+// Modo visitante: o servidor ja recusa qualquer envio; aqui so deixamos isso claro na tela.
+function setupVisitorMode() {
+  if (document.body.dataset.visitor !== "true") {
+    return;
+  }
+  document.querySelectorAll("form").forEach((form) => {
+    if ((form.getAttribute("method") || "get").toLowerCase() !== "post") {
+      return;
+    }
+    form.classList.add("is-visitor-locked");
+    form.querySelectorAll("button, input[type='submit']").forEach((button) => {
+      button.disabled = true;
+      button.title = "Desativado no modo visitante";
+    });
+  });
+}
+
+setupVisitorMode();
 setupMenu();
 setupDashboardHistory();
 setupPointsForm();

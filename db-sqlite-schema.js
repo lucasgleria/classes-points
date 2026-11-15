@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { INDEXES } = require("./db-postgres-schema");
+const { resolveStoredPassword } = require("./password-hash");
 
 function ensureDirectory(filename) {
   if (filename === ":memory:") {
@@ -229,6 +230,14 @@ function initializeSqliteSchema(db, options) {
     }
   }
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      attempt_key TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   // Mesmos indices do Postgres; o SQL e compativel.
   for (const statement of INDEXES) {
     db.exec(statement);
@@ -243,8 +252,16 @@ function initializeSqliteSchema(db, options) {
       display_name = excluded.display_name
   `);
 
+  const storedPasswords = new Map(
+    db.prepare("SELECT id, password FROM professors").all().map((row) => [Number(row.id), row.password])
+  );
   for (const teacher of options.teacherAccounts) {
-    upsertProfessor.run(teacher.id, teacher.username, teacher.password, teacher.displayName || teacher.username);
+    upsertProfessor.run(
+      teacher.id,
+      teacher.username,
+      resolveStoredPassword(teacher.password, storedPasswords.get(Number(teacher.id))),
+      teacher.displayName || teacher.username
+    );
   }
 
   db.prepare("UPDATE classes SET professor_id = 1 WHERE professor_id IS NULL").run();

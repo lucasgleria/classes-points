@@ -1,6 +1,13 @@
 const express = require("express");
 const { requireStudent, verifyStudent } = require("../auth");
 const { renderStudentLogin, renderStudentView } = require("../views");
+const {
+  buildKeys,
+  isLoginBlocked,
+  registerLoginFailure,
+  registerLoginSuccess,
+  WINDOW_MINUTES,
+} = require("../login-throttle");
 
 function createStudentRouter(store, auth) {
   const router = express.Router();
@@ -18,16 +25,26 @@ function createStudentRouter(store, auth) {
       return res.redirect(`/student/${req.params.token}/view`);
     }
 
-    const error = req.query.error === "invalid" ? "Credenciais invalidas." : "";
+    const error = {
+      invalid: "Credenciais invalidas.",
+      blocked: `Muitas tentativas. Aguarde ${WINDOW_MINUTES} minutos e tente novamente.`,
+    }[req.query.error] || "";
     return res.send(renderStudentLogin(student, error));
   });
 
   router.post("/student/:token/login", async (req, res) => {
-    const student = await verifyStudent(store, req.params.token, req.body.username, req.body.password);
-    if (!student) {
-      return res.redirect(`/student/${req.params.token}?error=invalid`);
+    const keys = buildKeys(`student:${req.params.token}`, req);
+    if (await isLoginBlocked(store, keys)) {
+      return res.redirect(`/student/${encodeURIComponent(req.params.token)}?error=blocked`);
     }
 
+    const student = await verifyStudent(store, req.params.token, req.body.username, req.body.password);
+    if (!student) {
+      await registerLoginFailure(store, keys);
+      return res.redirect(`/student/${encodeURIComponent(req.params.token)}?error=invalid`);
+    }
+
+    await registerLoginSuccess(store, keys);
     auth.setStudent(res, student);
     return res.redirect(`/student/${student.token}/view`);
   });

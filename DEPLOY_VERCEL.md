@@ -39,6 +39,8 @@
 - `ACADEMIC_RANKING_ENABLED`: `false` ate a aprovacao da ativacao do ranking combinado
 - `REPORT_TIMEZONE`: `America/Sao_Paulo`
 - `REPORT_CITY`: `Guarulhos`
+- Senhas em `TEACHER_ACCOUNTS`: use senhas longas e aleatorias (20+ caracteres). Ao trocar, refaca o deploy; o app grava o novo hash no banco no primeiro acesso.
+- Login bloqueado por excesso de tentativas libera sozinho em 15 minutos.
 - `DEBUG_DB` (opcional): `1` registra nos logs da Vercel o tempo de cada consulta ao banco; deixe vazio no uso normal.
 
 ## Validacao antes do deploy
