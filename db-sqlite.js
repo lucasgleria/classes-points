@@ -1358,6 +1358,13 @@ function createSqliteStore(options) {
     }
   }
 
+  // Conta desativada (senha vazia) nao volta a valer por aqui.
+  function updateProfessorPassword(professorId, passwordHash) {
+    const result = db.prepare("UPDATE professors SET password = ? WHERE id = ? AND password <> ''")
+      .run(passwordHash, professorId);
+    return result.changes > 0;
+  }
+
   function getStudentSummaryByToken(token) {
     const student = getStudentByToken(token);
     if (!student) {
@@ -1391,6 +1398,7 @@ function createSqliteStore(options) {
     getStudentByUsernameAndToken,
     getProfessorById,
     getProfessorByUsername,
+    updateProfessorPassword,
     getAllStudents,
     getStudentsWithCredentials,
     getStudentsByProfessor,

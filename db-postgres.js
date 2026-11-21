@@ -1319,6 +1319,15 @@ function createPostgresStore(options) {
     await query("DELETE FROM login_attempts WHERE attempt_key = ANY($1::text[])", [keys]);
   }
 
+  // Conta desativada (senha vazia) nao volta a valer por aqui.
+  async function updateProfessorPassword(professorId, passwordHash) {
+    const rows = await query(
+      "UPDATE professors SET password = $1 WHERE id = $2 AND password <> '' RETURNING id",
+      [passwordHash, professorId]
+    );
+    return rows.length > 0;
+  }
+
   async function getStudentSummaryByToken(token) {
     const student = await getStudentByToken(token);
     if (!student) {
@@ -1357,6 +1366,7 @@ function createPostgresStore(options) {
     getStudentByUsernameAndToken,
     getProfessorById,
     getProfessorByUsername,
+    updateProfessorPassword,
     getAllStudents,
     getStudentsWithCredentials,
     getStudentsByProfessor,

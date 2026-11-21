@@ -53,6 +53,15 @@ function resolveStoredPassword(password, currentStored) {
   return hash;
 }
 
+// A senha trocada pelo "Esqueci minha senha" fica no banco. A da configuracao so volta a valer
+// quando muda em TEACHER_ACCOUNTS, ou quando a conta estava desativada (senha vazia).
+// configPassword guarda o hash da senha da configuracao que foi aplicada por ultimo.
+function resolveProfessorPasswords(configuredPassword, stored = {}) {
+  const configPassword = resolveStoredPassword(configuredPassword, stored.configPassword || stored.password);
+  const keepChangedPassword = Boolean(stored.password) && stored.configPassword === configPassword;
+  return { password: keepChangedPassword ? stored.password : configPassword, configPassword };
+}
+
 let dummyHash = null;
 
 // Usuario inexistente ainda paga o custo de um scrypt, para o tempo de resposta nao revelar quem existe.
@@ -67,6 +76,7 @@ module.exports = {
   verifyAgainstDummy,
   hashPassword,
   isPasswordHash,
+  resolveProfessorPasswords,
   resolveStoredPassword,
   verifyPassword,
 };

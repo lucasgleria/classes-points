@@ -4,6 +4,8 @@ const path = require("node:path");
 const DEFAULT_REPORT_TIMEZONE = "America/Sao_Paulo";
 const DEFAULT_REPORT_CITY = "Guarulhos";
 const MIN_SESSION_SECRET_LENGTH = 32;
+// Codigo curto demais deixa a recuperacao desligada, em vez de aceitar algo facil de adivinhar.
+const MIN_PASSWORD_RESET_CODE_LENGTH = 16;
 
 function isTruthy(value) {
   return typeof value === "string" && ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
@@ -119,6 +121,7 @@ function getRuntimeConfig(env = process.env) {
   if (isProductionDeployment && sessionSecret.length < MIN_SESSION_SECRET_LENGTH) {
     throw new Error(`SESSION_SECRET obrigatoria em producao, com pelo menos ${MIN_SESSION_SECRET_LENGTH} caracteres.`);
   }
+  const passwordResetCode = normalizeOptionalString(env.PASSWORD_RESET_CODE, "");
   const databaseFilename =
     env.DATABASE_FILE ||
     (isVercel
@@ -137,6 +140,7 @@ function getRuntimeConfig(env = process.env) {
     teacherUsername: teacherAccounts[0].username,
     teacherPassword: teacherAccounts[0].password,
     sessionSecret: sessionSecret || "points-codex-development-secret",
+    passwordResetCode: passwordResetCode.length >= MIN_PASSWORD_RESET_CODE_LENGTH ? passwordResetCode : "",
     academicRankingEnabled: isTruthy(env.ACADEMIC_RANKING_ENABLED),
     reportTimezone: normalizeOptionalString(env.REPORT_TIMEZONE, DEFAULT_REPORT_TIMEZONE),
     reportCity: normalizeOptionalString(env.REPORT_CITY, DEFAULT_REPORT_CITY),

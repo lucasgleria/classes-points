@@ -36,10 +36,11 @@
   `[{"id":1,"username":"Lucas","password":"<senha forte>","displayName":"Lucas Leria"}]`.
   Para remover um professor, tire-o da lista e refaca o deploy: a conta perde o login (os dados dele continuam no banco).
 - `SESSION_SECRET`: segredo aleatorio com pelo menos 32 caracteres, exclusivo do projeto da Vercel. Troca-lo encerra todas as sessoes abertas.
+- `PASSWORD_RESET_CODE` (opcional): codigo secreto com pelo menos 16 caracteres que habilita a tela "Esqueci minha senha" (`/forgot-password`). Quem tem o codigo define uma nova senha para qualquer professor ativo, entao trate-o como senha. Sem ele (ou curto demais), a tela fica desligada.
 - `ACADEMIC_RANKING_ENABLED`: `true` (ranking combinado ativo em producao desde 15/11/2026; `false` volta a ordenar so por pontos)
 - `REPORT_TIMEZONE`: `America/Sao_Paulo`
 - `REPORT_CITY`: `Guarulhos`
-- Senhas em `TEACHER_ACCOUNTS`: use senhas longas e aleatorias (20+ caracteres). Ao trocar, refaca o deploy; o app grava o novo hash no banco no primeiro acesso.
+- Senhas em `TEACHER_ACCOUNTS`: use senhas longas e aleatorias (20+ caracteres). Ao trocar, refaca o deploy; o app grava o novo hash no banco no primeiro acesso. A senha trocada pelo "Esqueci minha senha" continua valendo ate a senha desse professor mudar em `TEACHER_ACCOUNTS`.
 - Login bloqueado por excesso de tentativas libera sozinho em 15 minutos.
 - `DEBUG_DB` (opcional): `1` registra nos logs da Vercel o tempo de cada consulta ao banco; deixe vazio no uso normal.
 

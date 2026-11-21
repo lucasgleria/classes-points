@@ -209,7 +209,7 @@ Implementacoes principais:
 - O aluno autenticado nao pode abrir pagina de outro token.
 - Professores so acessam turmas e alunos do proprio `professor_id`.
 - Operacoes sensiveis validam escopo antes de consultar ou gravar dados.
-- Senhas dos professores ficam no banco apenas como hash `scrypt` (`password-hash.js`); a fonte continua sendo `TEACHER_ACCOUNTS`.
+- Senhas dos professores ficam no banco apenas como hash `scrypt` (`password-hash.js`); a fonte continua sendo `TEACHER_ACCOUNTS`. O "Esqueci minha senha" (`/forgot-password`, com `PASSWORD_RESET_CODE`) troca a senha no banco; ela vale ate a senha daquele professor mudar em `TEACHER_ACCOUNTS`.
 - Limite de tentativas (`login-throttle.js`, tabela `login_attempts`): 5 falhas por conta ou 40 por IP em 15 minutos bloqueiam novos logins, inclusive com a senha certa.
 - Todo texto vindo do banco ou da URL passa por `escapeHtml` antes de ir para a pagina.
 - Cabecalhos de protecao: sem iframe (`X-Frame-Options: DENY`), `nosniff`, `Referrer-Policy: same-origin` e sem `X-Powered-By`.
@@ -256,6 +256,7 @@ Variaveis relevantes:
 | `TEACHER_USERNAME` | professor principal no desenvolvimento local (ignorada em producao) |
 | `TEACHER_PASSWORD` | senha do professor principal no desenvolvimento local (ignorada em producao) |
 | `SESSION_SECRET` | segredo de assinatura dos cookies; obrigatoria em producao, minimo 32 caracteres |
+| `PASSWORD_RESET_CODE` | opcional; codigo secreto (16+ caracteres) que habilita o "Esqueci minha senha" |
 | `DATABASE_URL` ou `POSTGRES_URL` | ativa Postgres |
 | `DATABASE_FILE` | caminho SQLite local |
 | `ACADEMIC_RANKING_ENABLED` | ativa placar combinado no dashboard |

@@ -255,3 +255,107 @@ test("Seguranca: professor removido de TEACHER_ACCOUNTS perde o login, sem apaga
   onlyFirst.close();
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+const RESET_CODE = "codigo-de-recuperacao-de-teste";
+
+function resetFixture(teacherAccounts = getRuntimeConfig().teacherAccounts) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "points-reset-"));
+  const filename = path.join(dir, "test.sqlite");
+  const store = createDatabase({ filename, teacherAccounts });
+  const { app } = createApp({ store, sessionSecret: "test-secret", runtimeConfig: { passwordResetCode: RESET_CODE } });
+  return {
+    app,
+    store,
+    filename,
+    login: (username, password) => request(app).post("/login").type("form").send({ username, password }),
+    reset: (fields) => request(app).post("/forgot-password").type("form").send(fields),
+    close() {
+      store.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  };
+}
+
+test("Recuperacao: codigo certo troca a senha, que sobrevive a reinicializacao ate a configuracao mudar", async () => {
+  const context = resetFixture();
+  const newPassword = "nova-senha-123";
+  const fields = { username: teacher.username, code: RESET_CODE, password: newPassword, confirmPassword: newPassword };
+
+  assert.match((await request(context.app).get("/")).text, /href="\/forgot-password"/);
+  assert.match((await request(context.app).get("/forgot-password")).text, /name="code"/);
+
+  const wrongCode = await context.reset({ ...fields, code: "codigo-errado" });
+  assert.equal(wrongCode.status, 400);
+  assert.match(wrongCode.text, /codigo de recuperacao invalido/);
+  assert.equal((await context.reset({ ...fields, confirmPassword: "diferente" })).status, 400);
+  assert.equal((await context.reset({ ...fields, password: "curta", confirmPassword: "curta" })).status, 400);
+  assert.equal((await context.login(teacher.username, teacher.password)).headers.location, "/dashboard", "nada mudou ainda");
+
+  const ok = await context.reset(fields);
+  assert.equal(ok.status, 303);
+  assert.equal(ok.headers.location, "/?message=reset");
+  assert.match((await request(context.app).get("/?message=reset")).text, /Senha alterada/);
+  assert.equal((await context.login(teacher.username, teacher.password)).headers.location, "/?error=invalid");
+  assert.equal((await context.login(teacher.username, newPassword)).headers.location, "/dashboard");
+
+  // Novo cold start com a mesma configuracao: a senha trocada continua valendo.
+  const accounts = getRuntimeConfig().teacherAccounts;
+  const restarted = createDatabase({ filename: context.filename, teacherAccounts: accounts });
+  assert.ok(await verifyProfessorPassword(restarted, newPassword));
+  restarted.close();
+
+  // Senha nova em TEACHER_ACCOUNTS volta a mandar.
+  const changedConfig = accounts.map((account) => (account.id === teacher.id ? { ...account, password: "senha-da-vercel" } : account));
+  const reconfigured = createDatabase({ filename: context.filename, teacherAccounts: changedConfig });
+  assert.ok(await verifyProfessorPassword(reconfigured, "senha-da-vercel"));
+  assert.ok(!(await verifyProfessorPassword(reconfigured, newPassword)));
+  reconfigured.close();
+  context.close();
+});
+
+async function verifyProfessorPassword(store, password) {
+  return verifyPassword(password, (await store.getProfessorById(teacher.id)).password);
+}
+
+test("Recuperacao: tentativas erradas bloqueiam e o sucesso libera o login bloqueado", async () => {
+  const context = resetFixture();
+  const fields = { username: teacher.username, code: "errado", password: "nova-senha-123", confirmPassword: "nova-senha-123" };
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    assert.equal((await context.reset(fields)).status, 400);
+    await context.login(teacher.username, "senha-errada");
+  }
+  assert.equal((await context.reset({ ...fields, code: RESET_CODE })).status, 429, "codigo certo tambem bloqueado");
+  assert.equal((await context.login(teacher.username, teacher.password)).headers.location, "/?error=blocked");
+
+  context.store.clearLoginFailures([`reset:${teacher.username.toLowerCase()}`]);
+  assert.equal((await context.reset({ ...fields, code: RESET_CODE })).status, 303);
+  assert.equal((await context.login(teacher.username, "nova-senha-123")).headers.location, "/dashboard");
+  context.close();
+});
+
+test("Recuperacao: conta desativada nao volta, e sem codigo configurado a tela fica desligada", async () => {
+  const [first, second] = getRuntimeConfig().teacherAccounts;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "points-reset-off-"));
+  const filename = path.join(dir, "test.sqlite");
+  createDatabase({ filename, teacherAccounts: [first, second] }).close();
+  const onlyFirst = createDatabase({ filename, teacherAccounts: [first] });
+  const { app } = createApp({ store: onlyFirst, sessionSecret: "test-secret", runtimeConfig: { passwordResetCode: RESET_CODE } });
+  const revived = await request(app).post("/forgot-password").type("form")
+    .send({ username: second.username, code: RESET_CODE, password: "nova-senha-123", confirmPassword: "nova-senha-123" });
+  assert.equal(revived.status, 400);
+  assert.equal(onlyFirst.getProfessorById(second.id).password, "");
+
+  const disabled = createApp({ store: onlyFirst, sessionSecret: "test-secret", runtimeConfig: { passwordResetCode: "" } }).app;
+  assert.match((await request(disabled).get("/forgot-password")).text, /não está configurada/);
+  const blocked = await request(disabled).post("/forgot-password").type("form")
+    .send({ username: first.username, code: "", password: "nova-senha-123", confirmPassword: "nova-senha-123" });
+  assert.equal(blocked.status, 404);
+  assert.equal((await request(disabled).post("/login").type("form").send({ username: first.username, password: first.password })).headers.location, "/dashboard");
+  onlyFirst.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("Recuperacao: codigo curto demais deixa a recuperacao desligada", () => {
+  assert.equal(getRuntimeConfig({ PASSWORD_RESET_CODE: "curto" }).passwordResetCode, "");
+  assert.equal(getRuntimeConfig({ PASSWORD_RESET_CODE: RESET_CODE }).passwordResetCode, RESET_CODE);
+});

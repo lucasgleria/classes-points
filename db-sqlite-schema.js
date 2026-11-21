@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { INDEXES } = require("./db-postgres-schema");
-const { resolveStoredPassword } = require("./password-hash");
+const { resolveProfessorPasswords } = require("./password-hash");
 
 function ensureDirectory(filename) {
   if (filename === ":memory:") {
@@ -204,6 +204,9 @@ function initializeSqliteSchema(db, options) {
   if (!professorColumns.some((column) => column.name === "display_name")) {
     db.exec("ALTER TABLE professors ADD COLUMN display_name TEXT");
   }
+  if (!professorColumns.some((column) => column.name === "config_password")) {
+    db.exec("ALTER TABLE professors ADD COLUMN config_password TEXT");
+  }
 
   const studentColumns = db.prepare("PRAGMA table_info(students)").all();
   if (!studentColumns.some((column) => column.name === "class_id")) {
@@ -244,22 +247,26 @@ function initializeSqliteSchema(db, options) {
   }
 
   const upsertProfessor = db.prepare(`
-    INSERT INTO professors (id, username, password, display_name)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO professors (id, username, password, config_password, display_name)
+    VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       username = excluded.username,
       password = excluded.password,
+      config_password = excluded.config_password,
       display_name = excluded.display_name
   `);
 
   const storedPasswords = new Map(
-    db.prepare("SELECT id, password FROM professors").all().map((row) => [Number(row.id), row.password])
+    db.prepare("SELECT id, password, config_password FROM professors").all()
+      .map((row) => [Number(row.id), { password: row.password, configPassword: row.config_password }])
   );
   for (const teacher of options.teacherAccounts) {
+    const passwords = resolveProfessorPasswords(teacher.password, storedPasswords.get(Number(teacher.id)));
     upsertProfessor.run(
       teacher.id,
       teacher.username,
-      resolveStoredPassword(teacher.password, storedPasswords.get(Number(teacher.id))),
+      passwords.password,
+      passwords.configPassword,
       teacher.displayName || teacher.username
     );
   }
